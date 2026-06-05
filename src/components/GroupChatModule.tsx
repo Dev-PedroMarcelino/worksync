@@ -219,7 +219,7 @@ export const GroupChatModule: React.FC<GroupChatModuleProps> = ({
   const roomDetails = getActiveRoomDetails();
 
   return (
-    <div className="flex-1 flex min-h-0 divide-x divide-gray-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900 md:rounded-3xl md:border border-gray-200 dark:border-zinc-800 overflow-hidden md:shadow-sm" id="group-chat-module">
+    <div className="flex-1 flex min-h-0 md:divide-x divide-gray-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900 md:rounded-3xl md:border border-gray-200 dark:border-zinc-800 overflow-hidden md:shadow-sm" id="group-chat-module">
       {/* LEFT PANEL: ROOMS list */}
       <div className={`w-full md:w-64 flex flex-col shrink-0 bg-gray-50/50 dark:bg-zinc-950/20 ${chatMobileView === "list" ? "flex" : "hidden md:flex"}`}>
         {/* Panel header */}
@@ -458,7 +458,7 @@ export const GroupChatModule: React.FC<GroupChatModuleProps> = ({
                     )}
 
                     <div
-                      className={`p-3 rounded-2xl text-xs leading-relaxed break-words max-w-[85%] sm:max-w-md ${
+                      className={`p-3 rounded-2xl text-xs leading-relaxed break-words max-w-full sm:max-w-md ${
                         isMe
                           ? "bg-sky-600 text-white rounded-tr-xs shadow-xs"
                           : "bg-white dark:bg-zinc-800 text-gray-900 dark:text-zinc-100 rounded-tl-xs shadow-xs border border-gray-200/50 dark:border-zinc-750/30"
@@ -626,7 +626,7 @@ export const GroupChatModule: React.FC<GroupChatModuleProps> = ({
                 ? "Lembrete..."
                 : `Mensagem privada...`
             }
-            className="flex-1 border-none text-xs bg-gray-100 dark:bg-zinc-800/80 px-4 py-2.5 rounded-full focus:ring-1 focus:ring-sky-500 focus:outline-none dark:text-zinc-100 font-medium"
+            className="flex-1 min-w-0 border-none text-xs bg-gray-100 dark:bg-zinc-800/80 px-4 py-2.5 rounded-full focus:ring-1 focus:ring-sky-500 focus:outline-none dark:text-zinc-100 font-medium"
           />
           <button
             id="chat-submit-btn"

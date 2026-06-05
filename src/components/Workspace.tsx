@@ -180,10 +180,16 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
 
   // Back button for mobile/tablet responsive layout
   const handleGoBack = () => {
-    if (selectedSubgroup) {
-      setSelectedSubgroup(null);
-    } else if (selectedGroup) {
-      setSelectedGroup(null);
+    if (isPersonal) {
+      if (selectedSubgroup) {
+        setSelectedSubgroup(null);
+      }
+    } else {
+      if (selectedSubgroup) {
+        setSelectedSubgroup(null);
+      } else if (selectedGroup) {
+        setSelectedGroup(null);
+      }
     }
   };
 
@@ -253,27 +259,31 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
   return (
     <div className="flex-1 h-[100dvh] flex flex-col bg-gray-50 dark:bg-zinc-950 overflow-hidden font-sans relative transition-colors duration-200">
       {/* HEADER BAR */}
-      <header className={`px-6 py-4 bg-white dark:bg-zinc-900 border-b border-gray-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-4 select-none shrink-0 ${activeModule === "chat" && chatMobileView === "chat" ? "hidden md:flex" : "flex"}`} id="workspace-header">
+      <header className={`px-4 sm:px-6 py-3 sm:py-4 bg-white dark:bg-zinc-900 border-b border-gray-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-4 select-none shrink-0 ${activeModule === "chat" && chatMobileView === "chat" ? "hidden md:flex" : "flex"}`} id="workspace-header">
         <div className="flex items-center gap-2">
           {/* Mobile open-menu drawer button */}
-          <button
-            id="workspace-menu-toggle-btn"
-            onClick={onOpenMobileSidebar}
-            className="md:hidden p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200 cursor-pointer"
-            title="Abrir Menu"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
+          {((isPersonal && !selectedSubgroup) || (!isPersonal && !selectedGroup)) && (
+            <button
+              id="workspace-menu-toggle-btn"
+              onClick={onOpenMobileSidebar}
+              className="md:hidden p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200 cursor-pointer"
+              title="Abrir Menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+          )}
 
           {/* Back responsive trigger button */}
-          <button
-            id="workspace-back-btn"
-            onClick={handleGoBack}
-            className="md:hidden p-1.5 rounded-lg hover:bg-gray-150 dark:hover:bg-zinc-800 text-gray-405 hover:text-gray-600 cursor-pointer"
-            title="Voltar"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
+          {((isPersonal && selectedSubgroup) || (!isPersonal && selectedGroup)) && (
+            <button
+              id="workspace-back-btn"
+              onClick={handleGoBack}
+              className="md:hidden p-1.5 rounded-lg hover:bg-gray-150 dark:hover:bg-zinc-800 text-gray-405 hover:text-gray-600 cursor-pointer"
+              title="Voltar"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
 
           <div>
             <div className="flex items-center gap-2">
