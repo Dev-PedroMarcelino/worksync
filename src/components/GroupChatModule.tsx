@@ -219,7 +219,7 @@ export const GroupChatModule: React.FC<GroupChatModuleProps> = ({
   const roomDetails = getActiveRoomDetails();
 
   return (
-    <div className="flex-1 flex min-h-0 md:divide-x divide-gray-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900 md:rounded-3xl md:border border-gray-200 dark:border-zinc-800 overflow-hidden md:shadow-sm" id="group-chat-module">
+    <div className="flex-1 w-full max-w-full flex min-h-0 md:divide-x divide-gray-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900 md:rounded-3xl md:border border-gray-200 dark:border-zinc-800 overflow-hidden md:shadow-sm" id="group-chat-module">
       {/* LEFT PANEL: ROOMS list */}
       <div className={`w-full md:w-64 flex flex-col shrink-0 bg-gray-50/50 dark:bg-zinc-950/20 ${chatMobileView === "list" ? "flex" : "hidden md:flex"}`}>
         {/* Panel header */}
@@ -349,7 +349,7 @@ export const GroupChatModule: React.FC<GroupChatModuleProps> = ({
       </div>
 
       {/* RIGHT PANEL: CHAT SCENE */}
-      <div className={`flex-1 flex flex-col min-h-0 bg-white dark:bg-zinc-900 ${chatMobileView === "chat" ? "flex" : "hidden md:flex"}`}>
+      <div className={`flex-1 min-w-0 w-full flex flex-col min-h-0 bg-white dark:bg-zinc-900 ${chatMobileView === "chat" ? "flex" : "hidden md:flex"}`}>
         {/* Chat Scene Header */}
         <div className="px-4 py-3 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between shrink-0 bg-white dark:bg-zinc-900 shadow-xs">
           <div className="flex items-center gap-2 overflow-hidden">

@@ -823,7 +823,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
       </AnimatePresence>
 
       {/* CORE WORKSPACE CONTENT PANEL */}
-      <main className={`flex-1 overflow-hidden relative flex flex-col ${activeModule === "chat" ? "p-0 md:p-6" : "p-2 sm:p-6"} min-h-0`} id="workspace-main-panel">
+      <main className={`flex-1 w-full max-w-full overflow-hidden relative flex flex-col ${activeModule === "chat" ? "p-0 md:p-6" : "p-2 sm:p-6"} min-h-0`} id="workspace-main-panel">
         {/* Permission restriction header warn (Read-Only safeguard list) */}
         {!isPersonal && selectedSubgroup && !canEditSubgroup && (
           <div className="mb-4 px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-center gap-3 text-xs text-amber-700 dark:text-amber-400 scale-98 select-none shrink-0">
@@ -834,7 +834,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
           </div>
         )}
 
-        <div className="flex-1 min-h-0 relative flex flex-col">
+        <div className="flex-1 min-h-0 w-full max-w-full relative flex flex-col overflow-hidden">
           {!isPersonal && !selectedSubgroup && (activeModule === "tasks" || activeModule === "whiteboard" || activeModule === "notes") ? (
             <div className="flex-1 flex items-center justify-center p-8 bg-gray-50/50 dark:bg-zinc-950/20 text-gray-550">
               <motion.div
