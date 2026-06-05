@@ -1,0 +1,159 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // General user profile rules
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId) && request.resource.data.keys().hasAll(['id', 'name', 'email', 'theme', 'createdAt']) && request.resource.data.theme in ['light', 'dark'];
+      allow update: if isOwner(userId) && request.resource.data.theme in ['light', 'dark'] && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if false;
+    }
+
+    // Friends and Friend Requests subcollections
+    match /users/{userId}/friendRequests/{requestId} {
+      allow read: if isSignedIn() && (isOwner(userId) || request.auth.uid == requestId);
+      allow write: if isSignedIn() && (isOwner(userId) || request.auth.uid == requestId);
+    }
+    match /users/{userId}/friends/{friendId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Personal area subcollections
+    match /users/{userId}/personalTasks/{taskId} {
+      allow read, write: if isOwner(userId);
+    }
+    match /users/{userId}/personalWhiteboard/{itemId} {
+      allow read, write: if isOwner(userId);
+    }
+    match /users/{userId}/personalNotes/{noteId} {
+      allow read, write: if isOwner(userId);
+    }
+    match /users/{userId}/personalBoards/{boardId} {
+      allow read, write: if isOwner(userId);
+    }
+    match /users/{userId}/personalSubgroups/{subgroupId} {
+      allow read, write: if isOwner(userId);
+
+      match /tasks/{taskId} {
+        allow read, write: if isOwner(userId);
+      }
+      match /whiteboard/{itemId} {
+        allow read, write: if isOwner(userId);
+      }
+      match /notebooks/{noteId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // Group-related rules
+    function isGroupMember(groupId) {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid))
+      );
+    }
+
+    function isGroupCreator(groupId) {
+      return isSignedIn() && (
+        get(/databases/$(database)/documents/groups/$(groupId)).data.creatorId == request.auth.uid
+      );
+    }
+
+    match /groups/{groupId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.creatorId == request.auth.uid;
+      allow update: if isSignedIn() && (resource.data.creatorId == request.auth.uid || isGroupMember(groupId));
+      allow delete: if isSignedIn() && resource.data.creatorId == request.auth.uid;
+
+      match /members/{memberId} {
+        // Anyone in the group or the joining member can read
+        allow read: if isSignedIn() && (isGroupMember(groupId) || memberId == request.auth.uid);
+        // A user can create their own membership (joining) or group creator can add them
+        allow create: if isSignedIn() && (memberId == request.auth.uid || isGroupCreator(groupId));
+        // Group creator can update roles, or member can update own profile
+        allow update, delete: if isSignedIn() && (isGroupCreator(groupId) || memberId == request.auth.uid);
+      }
+
+      match /messages/{messageId} {
+        allow read, write: if isGroupMember(groupId);
+      }
+
+      function isSubgroupCreator(subgroupId) {
+        return get(/databases/$(database)/documents/groups/$(groupId)/subgroups/$(subgroupId)).data.creatorId == request.auth.uid;
+      }
+
+      function hasSubgroupPermission(subgroupId) {
+        return isGroupCreator(groupId) ||
+          isSubgroupCreator(subgroupId) ||
+          !exists(/databases/$(database)/documents/groups/$(groupId)/subgroups/$(subgroupId)/permissions/$(request.auth.uid)) ||
+          get(/databases/$(database)/documents/groups/$(groupId)/subgroups/$(subgroupId)/permissions/$(request.auth.uid)).data.canEdit == true;
+      }
+
+      match /subgroups/{subgroupId} {
+        allow read: if isGroupMember(groupId);
+        // Any group member can create a subgroup
+        allow create: if isGroupMember(groupId) && request.resource.data.creatorId == request.auth.uid;
+        // Only creator of subgroup, or creator of group can modify/delete
+        allow update, delete: if isGroupMember(groupId) && (resource.data.creatorId == request.auth.uid || isGroupCreator(groupId));
+
+        match /permissions/{permId} {
+          allow read: if isGroupMember(groupId);
+          // Only the subgroup creator or group creator can manage permissions
+          allow write: if isGroupMember(groupId) && (isSubgroupCreator(subgroupId) || isGroupCreator(groupId));
+        }
+
+        match /tasks/{taskId} {
+          allow read: if isGroupMember(groupId);
+          // Any group member can write if they have subgroup editing permissions, or if no custom permissions are set (creator is always allowed)
+          allow write: if isGroupMember(groupId) && hasSubgroupPermission(subgroupId);
+        }
+
+        match /whiteboard/{itemId} {
+          allow read: if isGroupMember(groupId);
+          allow write: if isGroupMember(groupId) && hasSubgroupPermission(subgroupId);
+        }
+
+        match /notebooks/{noteId} {
+          allow read: if isGroupMember(groupId);
+          allow write: if isGroupMember(groupId) && hasSubgroupPermission(subgroupId);
+        }
+
+        match /boards/{boardId} {
+          allow read: if isGroupMember(groupId);
+          allow write: if isGroupMember(groupId) && hasSubgroupPermission(subgroupId);
+        }
+      }
+
+      match /notifications/{notifId} {
+        allow read, write: if isGroupMember(groupId);
+      }
+
+      match /auditLogs/{logId} {
+        allow read: if isGroupMember(groupId);
+        allow create: if isGroupMember(groupId) 
+          && request.resource.data.groupId == groupId 
+          && request.resource.data.performedById == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+  }
+}

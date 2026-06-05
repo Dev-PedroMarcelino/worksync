@@ -1,0 +1,8 @@
+{
+  "name": "Organização de Tarefas",
+  "description": "Sistema completo e funcional para organização de tarefas em grupos (com subgrupos, listas, quadro branco e notas) e de forma pessoal.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

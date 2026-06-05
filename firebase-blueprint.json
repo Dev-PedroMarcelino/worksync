@@ -1,0 +1,229 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with configuration settings",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The unique Firebase UID for the user" },
+        "name": { "type": "string", "description": "Display name of the user" },
+        "email": { "type": "string", "description": "Email address of the user" },
+        "photoUrl": { "type": "string", "description": "User profile picture or avatar SVG/Base64" },
+        "role": { "type": "string", "description": "Optional job title or role" },
+        "theme": { "type": "string", "enum": ["light", "dark"], "description": "User's preferred theme mode" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "email", "theme", "createdAt"]
+    },
+    "Group": {
+      "title": "Group",
+      "description": "A group workspace (corporate, academic, etc.) sharing projects",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "code": { "type": "string", "description": "Unique 6-character access code" },
+        "creatorId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "code", "creatorId", "createdAt"]
+    },
+    "GroupMember": {
+      "title": "GroupMember",
+      "description": "A member associated with a specific workspace group",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "role": { "type": "string" },
+        "color": { "type": "string", "description": "The custom user identification color token" },
+        "joinedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "color", "joinedAt"]
+    },
+    "Subgroup": {
+      "title": "Subgroup",
+      "description": "A subgroup within a workspace for specific projects",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "groupId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "creatorId": { "type": "string" },
+        "color": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "groupId", "name", "creatorId", "color", "createdAt"]
+    },
+    "SubgroupPermission": {
+      "title": "SubgroupPermission",
+      "description": "A permission definition for a user in a subgroup",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "canEdit": { "type": "boolean" },
+        "setBy": { "type": "string" }
+      },
+      "required": ["userId", "canEdit"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "A task with nested checklists and asignees",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "completed"] },
+        "priority": { "type": "string", "enum": ["low", "medium", "high"] },
+        "dueDate": { "type": "string" },
+        "assignedTo": { "type": "string" },
+        "assignedToName": { "type": "string" },
+        "checklist": { "type": "array" },
+        "creatorId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "status", "priority", "creatorId", "createdAt", "updatedAt"]
+    },
+    "WhiteboardItem": {
+      "title": "WhiteboardItem",
+      "description": "A sticky post-it note on a whiteboard canvas",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "color": { "type": "string" },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "creatorId": { "type": "string" },
+        "creatorName": { "type": "string" },
+        "creatorColor": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "text", "color", "x", "y", "creatorId", "creatorName", "creatorColor", "createdAt"]
+    },
+    "Notebook": {
+      "title": "Notebook",
+      "description": "A notebook containing styled visual pages or records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "color": { "type": "string" },
+        "creatorId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "content", "color", "creatorId", "createdAt", "updatedAt"]
+    },
+    "WhiteboardBoard": {
+      "title": "WhiteboardBoard",
+      "description": "A structural board on a whiteboard canvas",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "creatorId": { "type": "string" }
+      },
+      "required": ["id", "name", "createdAt", "creatorId"]
+    },
+    "AuditLogEntry": {
+      "title": "AuditLogEntry",
+      "description": "An audit log of task modifications within subgroup workspaces",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "groupId": { "type": "string" },
+        "subgroupId": { "type": "string" },
+        "subgroupName": { "type": "string" },
+        "taskId": { "type": "string" },
+        "taskTitle": { "type": "string" },
+        "action": { "type": "string", "enum": ["create", "complete", "delete"] },
+        "performedBy": { "type": "string" },
+        "performedById": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "groupId", "subgroupId", "taskId", "taskTitle", "action", "performedBy", "performedById", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User accounts and theme configurations"
+    },
+    "/users/{userId}/personalTasks/{taskId}": {
+      "schema": "Task",
+      "description": "Tasks created for private personal use"
+    },
+    "/users/{userId}/personalWhiteboard/{itemId}": {
+      "schema": "WhiteboardItem",
+      "description": "Post-its for personal whiteboard"
+    },
+    "/users/{userId}/personalNotes/{noteId}": {
+      "schema": "Notebook",
+      "description": "Personal journals and notes"
+    },
+    "/users/{userId}/personalBoards/{boardId}": {
+      "schema": "WhiteboardBoard",
+      "description": "Personal whiteboard boards"
+    },
+    "/users/{userId}/personalSubgroups/{subgroupId}": {
+      "schema": "Subgroup",
+      "description": "Personal area sub-workspaces"
+    },
+    "/users/{userId}/personalSubgroups/{subgroupId}/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Tasks within a personal subgroup"
+    },
+    "/users/{userId}/personalSubgroups/{subgroupId}/whiteboard/{itemId}": {
+      "schema": "WhiteboardItem",
+      "description": "Whiteboard items within a personal subgroup"
+    },
+    "/users/{userId}/personalSubgroups/{subgroupId}/notebooks/{noteId}": {
+      "schema": "Notebook",
+      "description": "Notebooks within a personal subgroup"
+    },
+    "/groups/{groupId}": {
+      "schema": "Group",
+      "description": "Workspaces shared among members"
+    },
+    "/groups/{groupId}/members/{memberId}": {
+      "schema": "GroupMember",
+      "description": "Members authorized to access group materials"
+    },
+    "/groups/{groupId}/subgroups/{subgroupId}": {
+      "schema": "Subgroup",
+      "description": "Dynamic sub-organization under main groups"
+    },
+    "/groups/{groupId}/subgroups/{subgroupId}/permissions/{permId}": {
+      "schema": "SubgroupPermission",
+      "description": "Fine-grained permissions for subgroups"
+    },
+    "/groups/{groupId}/subgroups/{subgroupId}/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Subgroup project tasks"
+    },
+    "/groups/{groupId}/subgroups/{subgroupId}/whiteboard/{itemId}": {
+      "schema": "WhiteboardItem",
+      "description": "Subgroup project post-its"
+    },
+    "/groups/{groupId}/subgroups/{subgroupId}/notebooks/{noteId}": {
+      "schema": "Notebook",
+      "description": "Subgroup project notebooks"
+    },
+    "/groups/{groupId}/subgroups/{subgroupId}/boards/{boardId}": {
+      "schema": "WhiteboardBoard",
+      "description": "Subgroup project whiteboard boards"
+    },
+    "/groups/{groupId}/auditLogs/{logId}": {
+      "schema": "AuditLogEntry",
+      "description": "Audit logging history for group tasks"
+    }
+  }
+}

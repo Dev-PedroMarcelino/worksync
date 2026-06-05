@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-zinc-50: #f8fafc; /* slate-50 */
+  --color-zinc-100: #f1f5f9; /* slate-100 */
+  --color-zinc-200: #e2e8f0; /* slate-200 */
+  --color-zinc-300: #cbd5e1; /* slate-300 */
+  --color-zinc-400: #94a3b8; /* slate-400 */
+  --color-zinc-500: #64748b; /* slate-500 */
+  --color-zinc-600: #475569; /* slate-600 */
+  --color-zinc-700: #334155; /* slate-700 */
+  --color-zinc-750: rgb(51 65 85 / 0.7); /* slate-700 w/ opacity */
+  --color-zinc-800: #1E293B; /* slate-800 (Sidebar bg) */
+  --color-zinc-850: rgb(30 41 59 / 0.5); /* slate-800 w/ opacity */
+  --color-zinc-900: #1E293B; /* slate-800 (Sidebar bg) */
+  --color-zinc-950: #0F172A; /* slate-950 (Elegant Dark Main bg) */
+}
+
+/* Custom Scrollbar Styling for elegant design feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
