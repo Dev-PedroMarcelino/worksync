@@ -120,6 +120,7 @@ export interface ChatMessage {
   fileUrl?: string;
   fileName?: string;
   fileType?: string;
+  pending?: boolean;
 }
 
 export interface AuditLogEntry {

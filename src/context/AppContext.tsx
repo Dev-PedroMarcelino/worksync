@@ -1015,6 +1015,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 id: doc.id,
                 timestamp: parseFirestoreTimestamp(data.timestamp),
                 editedAt: data.editedAt ? parseFirestoreTimestamp(data.editedAt) : undefined,
+                pending: doc.metadata.hasPendingWrites,
               } as ChatMessage;
               
               setLatestDmMessages((prev) => {
@@ -1166,9 +1167,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 id: doc.id,
                 timestamp: parseFirestoreTimestamp(data.timestamp),
                 editedAt: data.editedAt ? parseFirestoreTimestamp(data.editedAt) : undefined,
+                pending: doc.metadata.hasPendingWrites,
               } as ChatMessage);
             });
             arr.sort((a, b) => {
+              if (a.pending && !b.pending) return 1;
+              if (!a.pending && b.pending) return -1;
               const timeDiff = new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
               if (timeDiff !== 0) return timeDiff;
               return a.id.localeCompare(b.id);
@@ -1204,9 +1208,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 id: doc.id,
                 timestamp: parseFirestoreTimestamp(data.timestamp),
                 editedAt: data.editedAt ? parseFirestoreTimestamp(data.editedAt) : undefined,
+                pending: doc.metadata.hasPendingWrites,
               } as ChatMessage);
             });
             arr.sort((a, b) => {
+              if (a.pending && !b.pending) return 1;
+              if (!a.pending && b.pending) return -1;
               const timeDiff = new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
               if (timeDiff !== 0) return timeDiff;
               return a.id.localeCompare(b.id);
