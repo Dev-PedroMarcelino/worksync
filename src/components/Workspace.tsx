@@ -109,6 +109,43 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
   const [loadedSubgroups, setLoadedSubgroups] = useState<{ [groupId: string]: any[] }>({});
   const [loadingSubgroups, setLoadingSubgroups] = useState<{ [groupId: string]: boolean }>({});
 
+  // Members modal for group cards states
+  const [showMembersModal, setShowMembersModal] = useState(false);
+  const [activeMembersGroupId, setActiveMembersGroupId] = useState<string | null>(null);
+  const [loadedGroupMembers, setLoadedGroupMembers] = useState<{ [groupId: string]: GroupMember[] }>({});
+  const [loadingGroupMembers, setLoadingGroupMembers] = useState<{ [groupId: string]: boolean }>({});
+
+  const fetchMembersForGroup = async (groupId: string) => {
+    if (loadingGroupMembers[groupId]) return;
+    setLoadingGroupMembers((prev) => ({ ...prev, [groupId]: true }));
+    try {
+      if (isDemoMode) {
+        const key = `demo_group_members_${groupId}`;
+        const mems = JSON.parse(localStorage.getItem(key) || "[]") as GroupMember[];
+        setLoadedGroupMembers((prev) => ({ ...prev, [groupId]: mems }));
+      } else {
+        const membersRef = collection(db, "groups", groupId, "members");
+        const snap = await getDocs(membersRef);
+        const arr: GroupMember[] = [];
+        snap.forEach((doc) => arr.push({ ...doc.data(), userId: doc.id } as GroupMember));
+        setLoadedGroupMembers((prev) => ({ ...prev, [groupId]: arr }));
+      }
+    } catch (e) {
+      console.error("Error loading members for card", e);
+    } finally {
+      setLoadingGroupMembers((prev) => ({ ...prev, [groupId]: false }));
+    }
+  };
+
+  const handleOpenMembersList = async (groupId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setActiveMembersGroupId(groupId);
+    setShowMembersModal(true);
+    if (!loadedGroupMembers[groupId]) {
+      await fetchMembersForGroup(groupId);
+    }
+  };
+
   const compressImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -384,6 +421,15 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
     setSelectedDmUserId(null);
   }, [selectedGroup, selectedSubgroup, setSelectedDmUserId]);
 
+  // Force active module to chat if no subgroup is selected in group workspace mode
+  useEffect(() => {
+    if (!isPersonal && selectedGroup && !selectedSubgroup) {
+      if (activeModule === "tasks" || activeModule === "whiteboard" || activeModule === "notes") {
+        setActiveModule("chat");
+      }
+    }
+  }, [isPersonal, selectedGroup, selectedSubgroup, activeModule, setActiveModule]);
+
   const handleTogglePermission = async (targetUserId: string, currentVal: boolean) => {
     if (!selectedSubgroup) return;
     setIsUpdatingPerm(targetUserId);
@@ -507,6 +553,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
                     onClick={() => {
                       setSelectedGroup(group);
                       setSelectedSubgroup(null);
+                      setActiveModule("chat");
                     }}
                     style={{
                       backgroundImage: bgImage ? `url("${bgImage}")` : undefined,
@@ -623,6 +670,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
                                 Subgrupos
                               </>
                             )}
+                          </button>
+
+                          <button
+                            onClick={(e) => handleOpenMembersList(group.id, e)}
+                            className="py-1.5 px-3 rounded-lg bg-zinc-900/50 hover:bg-zinc-800/80 text-zinc-300 hover:text-white border border-zinc-800/45 text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            <Users className="w-3.5 h-3.5" />
+                            Membros
                           </button>
 
                           {isCreator ? (
@@ -950,6 +1005,77 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
             </div>
           )}
         </AnimatePresence>
+
+        {/* MODAL: VIEW GROUP MEMBERS */}
+        <AnimatePresence>
+          {showMembersModal && activeMembersGroupId && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[100] p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="w-full max-w-sm bg-white dark:bg-zinc-900 border border-gray-255 dark:border-zinc-850 rounded-2xl shadow-2xl overflow-hidden p-6 text-gray-900 dark:text-zinc-100 font-sans"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold flex items-center gap-2">
+                    <Users className="w-5 h-5 text-sky-500" />
+                    Membros do Grupo
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setShowMembersModal(false);
+                      setActiveMembersGroupId(null);
+                    }}
+                    className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-400 hover:text-gray-600 transition-all cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="mt-2 space-y-3 max-h-64 overflow-y-auto pr-1">
+                  {loadingGroupMembers[activeMembersGroupId] ? (
+                    <div className="py-8 text-center text-xs text-zinc-500 italic">Carregando membros...</div>
+                  ) : !loadedGroupMembers[activeMembersGroupId] || loadedGroupMembers[activeMembersGroupId].length === 0 ? (
+                    <div className="py-8 text-center text-xs text-zinc-500 italic">Nenhum membro encontrado.</div>
+                  ) : (
+                    loadedGroupMembers[activeMembersGroupId].map((m) => (
+                      <div
+                        key={m.userId}
+                        className="flex items-center gap-3 p-2 rounded-xl bg-gray-50 dark:bg-zinc-850/40 border border-gray-150 dark:border-zinc-800/40 animate-fade-in"
+                      >
+                        <img
+                          src={m.photoUrl}
+                          alt=""
+                          className="w-9 h-9 rounded-full object-cover border border-black/5 dark:border-white/5 shrink-0"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-gray-900 dark:text-white truncate">{m.name}</p>
+                          <p className="text-[10px] text-gray-400 truncate">{m.role || "Membro"}</p>
+                        </div>
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 ${m.color.split(" ")[0] || ""} ${m.color.split(" ")[1] || ""}`}>
+                          {m.role === "Criador" ? "Criador" : "Time"}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="flex justify-end mt-4">
+                  <button
+                    onClick={() => {
+                      setShowMembersModal(false);
+                      setActiveMembersGroupId(null);
+                    }}
+                    className="py-2 px-4 bg-zinc-150 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs font-bold rounded-xl transition-all cursor-pointer font-semibold"
+                  >
+                    Fechar
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }
@@ -1000,42 +1126,46 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
 
         {/* Tab Module Selectors */}
         <div className="flex flex-row flex-nowrap items-center p-1 bg-gray-100 dark:bg-zinc-800/80 rounded-xl border border-gray-200/50 dark:border-zinc-800/20 text-xs overflow-x-auto max-w-full shrink-0 scrollbar-none">
-          <button
-            id="module-tasks-btn"
-            onClick={() => setActiveModule("tasks")}
-            title="Fluxo de Tarefas"
-            className={`p-2.5 font-semibold rounded-lg flex items-center justify-center transition-all cursor-pointer ${
-              activeModule === "tasks"
-                ? "bg-white dark:bg-zinc-700 text-gray-900 dark:text-white shadow-xs"
-                : "text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200"
-            }`}
-          >
-            <CheckSquare className="w-4 h-4" />
-          </button>
-          <button
-            id="module-whiteboard-btn"
-            onClick={() => setActiveModule("whiteboard")}
-            title="Quadro Branco"
-            className={`p-2.5 font-semibold rounded-lg flex items-center justify-center transition-all cursor-pointer ${
-              activeModule === "whiteboard"
-                ? "bg-white dark:bg-zinc-700 text-gray-900 dark:text-white shadow-xs"
-                : "text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200"
-            }`}
-          >
-            <StickyNote className="w-4 h-4" />
-          </button>
-          <button
-            id="module-notes-btn"
-            onClick={() => setActiveModule("notes")}
-            title="Blocos de Notas"
-            className={`p-2.5 font-semibold rounded-lg flex items-center justify-center transition-all cursor-pointer ${
-              activeModule === "notes"
-                ? "bg-white dark:bg-zinc-700 text-gray-900 dark:text-white shadow-xs"
-                : "text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200"
-            }`}
-          >
-            <BookOpen className="w-4 h-4" />
-          </button>
+          {(isPersonal || selectedSubgroup) && (
+            <>
+              <button
+                id="module-tasks-btn"
+                onClick={() => setActiveModule("tasks")}
+                title="Fluxo de Tarefas"
+                className={`p-2.5 font-semibold rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                  activeModule === "tasks"
+                    ? "bg-white dark:bg-zinc-700 text-gray-900 dark:text-white shadow-xs"
+                    : "text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                }`}
+              >
+                <CheckSquare className="w-4 h-4" />
+              </button>
+              <button
+                id="module-whiteboard-btn"
+                onClick={() => setActiveModule("whiteboard")}
+                title="Quadro Branco"
+                className={`p-2.5 font-semibold rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                  activeModule === "whiteboard"
+                    ? "bg-white dark:bg-zinc-700 text-gray-900 dark:text-white shadow-xs"
+                    : "text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                }`}
+              >
+                <StickyNote className="w-4 h-4" />
+              </button>
+              <button
+                id="module-notes-btn"
+                onClick={() => setActiveModule("notes")}
+                title="Blocos de Notas"
+                className={`p-2.5 font-semibold rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                  activeModule === "notes"
+                    ? "bg-white dark:bg-zinc-700 text-gray-900 dark:text-white shadow-xs"
+                    : "text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                }`}
+              >
+                <BookOpen className="w-4 h-4" />
+              </button>
+            </>
+          )}
           {!isPersonal && (
             <button
               id="module-chat-btn"
