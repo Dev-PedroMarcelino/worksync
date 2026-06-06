@@ -43,7 +43,9 @@ import {
   updateDoc,
   deleteDoc,
   getDocFromServer,
-  serverTimestamp
+  serverTimestamp,
+  orderBy,
+  limit
 } from "firebase/firestore";
 
 export interface Toast {
@@ -178,6 +180,7 @@ const parseFirestoreTimestamp = (ts: any): string => {
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const appLoadTimeRef = useRef<number>(Date.now());
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [groups, setGroups] = useState<Group[]>([]);
   const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
@@ -320,22 +323,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           "task"
         );
         showNativeNotification("Tarefa Concluída! 🎉", `A tarefa "${task.title}" que você criou foi concluída.`);
-      }
-    });
-
-    // Check new DMs to current user
-    chatMessages.forEach((msg) => {
-      const prevMsg = prevMessagesRef.current.some((m) => m.id === msg.id);
-      const isNewDm = !prevMsg && msg.dmTo === currentUser.id && msg.senderId !== currentUser.id;
-
-      if (isNewDm) {
-        playNotificationSound();
-        addToast(
-          "Nova Mensagem Direta 💬",
-          `Você recebeu uma mensagem de ${msg.senderName}: "${msg.text}"`,
-          "chat"
-        );
-        showNativeNotification("Nova Mensagem Direta 💬", `Você recebeu uma mensagem de ${msg.senderName}: "${msg.text}"`);
       }
     });
 
@@ -1012,32 +999,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         unsubscribes.push(() => clearInterval(interval));
       } else {
         const chatPath = `groups/${dmGroupId}/messages`;
-        const unsub = onSnapshot(
+        const q = query(
           collection(db, chatPath),
+          orderBy("timestamp", "desc"),
+          limit(1)
+        );
+        const unsub = onSnapshot(
+          q,
           (snap) => {
-            const arr: ChatMessage[] = [];
-            snap.forEach((doc) => {
-              const data = doc.data();
-              arr.push({
+            if (!snap.empty) {
+              const doc = snap.docs[0];
+              const data = doc.data({ serverTimestamps: "estimate" });
+              const lastMsg = {
                 ...data,
                 id: doc.id,
                 timestamp: parseFirestoreTimestamp(data.timestamp),
                 editedAt: data.editedAt ? parseFirestoreTimestamp(data.editedAt) : undefined,
-              } as ChatMessage);
-            });
-            if (arr.length > 0) {
-              arr.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-              const lastMsg = arr[arr.length - 1];
+              } as ChatMessage;
               
               setLatestDmMessages((prev) => {
                 const existing = prev[friend.id];
                 if (existing && existing.id === lastMsg.id) return prev;
                 
-                const isNew = !existing || new Date(lastMsg.timestamp).getTime() > new Date(existing.timestamp).getTime();
+                const msgTime = new Date(lastMsg.timestamp).getTime();
+                const isRecent = msgTime > appLoadTimeRef.current - 10000;
                 const isFromFriend = lastMsg.senderId === friend.id;
                 const isChatActive = selectedDmUserId === friend.id && activeModule === "chat";
                 
-                if (isNew && isFromFriend && !isChatActive) {
+                if (isRecent && isFromFriend && !isChatActive) {
                   playNotificationSound();
                   addToast(
                     "Nova Mensagem Direta 💬",
@@ -1171,7 +1160,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           (snap) => {
             const arr: ChatMessage[] = [];
             snap.forEach((doc) => {
-              const data = doc.data();
+              const data = doc.data({ serverTimestamps: "estimate" });
               arr.push({
                 ...data,
                 id: doc.id,
@@ -1179,7 +1168,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 editedAt: data.editedAt ? parseFirestoreTimestamp(data.editedAt) : undefined,
               } as ChatMessage);
             });
-            arr.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+            arr.sort((a, b) => {
+              const timeDiff = new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+              if (timeDiff !== 0) return timeDiff;
+              return a.id.localeCompare(b.id);
+            });
             setChatMessages(arr);
           },
           (err) => handleFirestoreError(err, OperationType.LIST, chatPath)
@@ -1205,7 +1198,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           (snap) => {
             const arr: ChatMessage[] = [];
             snap.forEach((doc) => {
-              const data = doc.data();
+              const data = doc.data({ serverTimestamps: "estimate" });
               arr.push({
                 ...data,
                 id: doc.id,
@@ -1213,7 +1206,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 editedAt: data.editedAt ? parseFirestoreTimestamp(data.editedAt) : undefined,
               } as ChatMessage);
             });
-            arr.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+            arr.sort((a, b) => {
+              const timeDiff = new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+              if (timeDiff !== 0) return timeDiff;
+              return a.id.localeCompare(b.id);
+            });
             setChatMessages(arr);
           },
           (err) => handleFirestoreError(err, OperationType.LIST, chatPath)
