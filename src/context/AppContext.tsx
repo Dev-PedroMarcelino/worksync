@@ -42,7 +42,8 @@ import {
   onSnapshot,
   updateDoc,
   deleteDoc,
-  getDocFromServer
+  getDocFromServer,
+  serverTimestamp
 } from "firebase/firestore";
 
 export interface Toast {
@@ -167,6 +168,14 @@ const PRESET_MEMBER_COLORS = [
   "text-teal-500 bg-teal-500/10 border-teal-500/30",
   "text-orange-500 bg-orange-500/10 border-orange-500/30",
 ];
+
+const parseFirestoreTimestamp = (ts: any): string => {
+  if (!ts) return new Date().toISOString();
+  if (typeof ts === "string") return ts;
+  if (ts.toDate && typeof ts.toDate === "function") return ts.toDate().toISOString();
+  if (ts.seconds) return new Date(ts.seconds * 1000).toISOString();
+  return new Date(ts).toISOString();
+};
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -1007,7 +1016,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           collection(db, chatPath),
           (snap) => {
             const arr: ChatMessage[] = [];
-            snap.forEach((doc) => arr.push({ ...doc.data(), id: doc.id } as ChatMessage));
+            snap.forEach((doc) => {
+              const data = doc.data();
+              arr.push({
+                ...data,
+                id: doc.id,
+                timestamp: parseFirestoreTimestamp(data.timestamp),
+                editedAt: data.editedAt ? parseFirestoreTimestamp(data.editedAt) : undefined,
+              } as ChatMessage);
+            });
             if (arr.length > 0) {
               arr.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
               const lastMsg = arr[arr.length - 1];
@@ -1153,7 +1170,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           collection(db, chatPath),
           (snap) => {
             const arr: ChatMessage[] = [];
-            snap.forEach((doc) => arr.push({ ...doc.data(), id: doc.id } as ChatMessage));
+            snap.forEach((doc) => {
+              const data = doc.data();
+              arr.push({
+                ...data,
+                id: doc.id,
+                timestamp: parseFirestoreTimestamp(data.timestamp),
+                editedAt: data.editedAt ? parseFirestoreTimestamp(data.editedAt) : undefined,
+              } as ChatMessage);
+            });
             arr.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
             setChatMessages(arr);
           },
@@ -1179,7 +1204,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           collection(db, chatPath),
           (snap) => {
             const arr: ChatMessage[] = [];
-            snap.forEach((doc) => arr.push({ ...doc.data(), id: doc.id } as ChatMessage));
+            snap.forEach((doc) => {
+              const data = doc.data();
+              arr.push({
+                ...data,
+                id: doc.id,
+                timestamp: parseFirestoreTimestamp(data.timestamp),
+                editedAt: data.editedAt ? parseFirestoreTimestamp(data.editedAt) : undefined,
+              } as ChatMessage);
+            });
             arr.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
             setChatMessages(arr);
           },
@@ -2580,14 +2613,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (activeMemberObj) myColor = activeMemberObj.color;
     }
 
-    const newMessage: ChatMessage = {
+    const newMessage: any = {
       id: isDemoMode ? msgId : "",
       senderId: currentUser.id,
       senderName: currentUser.name,
       senderPhoto: currentUser.photoUrl || "",
       senderColor: myColor,
       text,
-      timestamp: new Date().toISOString(),
+      timestamp: isDemoMode ? new Date().toISOString() : serverTimestamp(),
     };
 
     if (dmTo) {
@@ -2644,7 +2677,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const msgRef = doc(db, `groups/${targetGroupId}/messages`, messageId);
         await updateDoc(msgRef, {
           text: newText,
-          editedAt: new Date().toISOString(),
+          editedAt: serverTimestamp(),
         });
       } catch (e) {
         handleFirestoreError(e, OperationType.UPDATE, `groups/${targetGroupId}/messages/${messageId}`);
