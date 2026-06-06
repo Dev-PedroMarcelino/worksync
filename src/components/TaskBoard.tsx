@@ -21,7 +21,8 @@ import {
   ChevronUp,
   ChevronRight,
   Info,
-  X
+  X,
+  Pencil
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Task, ChecklistItem } from "../types";
@@ -63,6 +64,76 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ canEdit }) => {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [confirmRequestDeleteId, setConfirmRequestDeleteId] = useState<string | null>(null);
   const [confirmApproveDeleteId, setConfirmApproveDeleteId] = useState<string | null>(null);
+
+  // Task Editing state
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [editPriority, setEditPriority] = useState<"low" | "medium" | "high">("medium");
+  const [editDueDate, setEditDueDate] = useState("");
+  const [editAssignedTo, setEditAssignedTo] = useState("");
+
+  // Subtask Editing state
+  const [editingSubTaskId, setEditingSubTaskId] = useState<string | null>(null);
+  const [editingSubTaskText, setEditingSubTaskText] = useState("");
+
+  const handleOpenEditModal = (task: Task) => {
+    setEditingTask(task);
+    setEditTitle(task.title);
+    setEditDesc(task.description || "");
+    setEditPriority(task.priority);
+    setEditDueDate(task.dueDate || "");
+    setEditAssignedTo(task.assignedTo || "");
+  };
+
+  const handleEditTaskSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTask || !editTitle.trim()) return;
+
+    let assignedToName = "";
+    if (editAssignedTo === "all") {
+      assignedToName = "Geral / Todos";
+    } else if (editAssignedTo) {
+      const mem = groupMembers.find((m) => m.userId === editAssignedTo);
+      assignedToName = mem ? mem.name : "";
+    }
+
+    try {
+      await updateTaskFields(editingTask.id, {
+        title: editTitle.trim(),
+        description: editDesc.trim(),
+        priority: editPriority,
+        dueDate: editDueDate,
+        assignedTo: editAssignedTo,
+        assignedToName: assignedToName,
+      });
+      setEditingTask(null);
+    } catch (err) {
+      alert("Erro ao salvar alterações da tarefa.");
+    }
+  };
+
+  const handleSaveSubTaskText = async (task: Task, itemId: string) => {
+    if (!editingSubTaskText.trim()) return;
+    const nextChecklist = task.checklist.map((item) =>
+      item.id === itemId ? { ...item, text: editingSubTaskText.trim() } : item
+    );
+    await updateTaskFields(task.id, { checklist: nextChecklist });
+    setEditingSubTaskId(null);
+  };
+
+  const handleMoveSubTask = async (task: Task, index: number, direction: -1 | 1) => {
+    if (!canEdit) return;
+    const nextIndex = index + direction;
+    if (nextIndex < 0 || nextIndex >= task.checklist.length) return;
+
+    const nextChecklist = [...task.checklist];
+    const temp = nextChecklist[index];
+    nextChecklist[index] = nextChecklist[nextIndex];
+    nextChecklist[nextIndex] = temp;
+
+    await updateTaskFields(task.id, { checklist: nextChecklist });
+  };
 
   const isPersonal = activeTab === "personal";
   const isGroupLeader = selectedGroup && currentUser && selectedGroup.creatorId === currentUser.id;
@@ -284,78 +355,88 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ canEdit }) => {
                       </div>
 
                       {canEdit && (
-                        isPersonal || isGroupLeader ? (
-                          confirmDeleteId === task.id ? (
-                            <div className="flex items-center gap-1 shrink-0 bg-red-500/10 dark:bg-red-950/20 p-1 rounded-lg border border-red-200 dark:border-red-900/40">
-                              <button
-                                onClick={() => {
-                                  deleteTask(task.id);
-                                  setConfirmDeleteId(null);
-                                }}
-                                className="px-2 py-1 text-[10px] bg-red-600 hover:bg-red-500 text-white rounded font-bold cursor-pointer transition-all"
-                              >
-                                Apagar
-                              </button>
-                              <button
-                                onClick={() => setConfirmDeleteId(null)}
-                                className="px-2 py-1 text-[10px] bg-gray-200 dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 rounded cursor-pointer transition-all"
-                              >
-                                Cancelar
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              id={`delete-task-btn-${task.id}`}
-                              onClick={() => {
-                                setConfirmDeleteId(task.id);
-                              }}
-                              className="p-1.5 bg-red-500/10 hover:bg-red-500/25 text-red-600 dark:text-red-400 rounded-lg transition-all shrink-0 cursor-pointer"
-                              title="Apagar Tarefa"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )
-                        ) : (
-                          (!task.deletionRequest || task.deletionRequest.status !== "pending") && (
-                            confirmRequestDeleteId === task.id ? (
-                              <div className="flex items-center gap-1 shrink-0 bg-orange-500/10 dark:bg-orange-950/20 p-1 rounded-lg border border-orange-200 dark:border-orange-900/40">
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            id={`edit-task-btn-${task.id}`}
+                            onClick={() => handleOpenEditModal(task)}
+                            className="p-1.5 bg-sky-500/10 hover:bg-sky-500/25 text-sky-600 dark:text-sky-400 rounded-lg transition-all shrink-0 cursor-pointer"
+                            title="Editar Tarefa"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          {isPersonal || isGroupLeader ? (
+                            confirmDeleteId === task.id ? (
+                              <div className="flex items-center gap-1 bg-red-500/10 dark:bg-red-950/20 p-1 rounded-lg border border-red-200 dark:border-red-900/40">
                                 <button
                                   onClick={() => {
-                                    updateTaskFields(task.id, {
-                                      deletionRequest: {
-                                        requestedBy: currentUser?.id || "",
-                                        requestedByName: currentUser?.name || "",
-                                        requestedAt: new Date().toISOString(),
-                                        status: "pending"
-                                      }
-                                    });
-                                    setConfirmRequestDeleteId(null);
+                                    deleteTask(task.id);
+                                    setConfirmDeleteId(null);
                                   }}
-                                  className="px-2 py-1 text-[10px] bg-orange-600 hover:bg-orange-500 text-white rounded font-bold cursor-pointer transition-all"
+                                  className="px-2 py-1 text-[10px] bg-red-600 hover:bg-red-500 text-white rounded font-bold cursor-pointer transition-all"
                                 >
-                                  Solicitar
+                                  Apagar
                                 </button>
                                 <button
-                                  onClick={() => setConfirmRequestDeleteId(null)}
+                                  onClick={() => setConfirmDeleteId(null)}
                                   className="px-2 py-1 text-[10px] bg-gray-200 dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 rounded cursor-pointer transition-all"
                                 >
-                                  Voltar
+                                  Cancelar
                                 </button>
                               </div>
                             ) : (
                               <button
-                                id={`request-delete-task-btn-${task.id}`}
+                                id={`delete-task-btn-${task.id}`}
                                 onClick={() => {
-                                  setConfirmRequestDeleteId(task.id);
+                                  setConfirmDeleteId(task.id);
                                 }}
-                                className="p-1.5 bg-orange-500/10 hover:bg-orange-500/25 text-orange-600 dark:text-orange-400 rounded-lg transition-all shrink-0 cursor-pointer"
-                                title="Solicitar Exclusão ao Líder"
+                                className="p-1.5 bg-red-500/10 hover:bg-red-500/25 text-red-600 dark:text-red-400 rounded-lg transition-all shrink-0 cursor-pointer"
+                                title="Apagar Tarefa"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             )
-                          )
-                        )
+                          ) : (
+                            (!task.deletionRequest || task.deletionRequest.status !== "pending") && (
+                              confirmRequestDeleteId === task.id ? (
+                                <div className="flex items-center gap-1 bg-orange-500/10 dark:bg-orange-950/20 p-1 rounded-lg border border-orange-200 dark:border-orange-900/40">
+                                  <button
+                                    onClick={() => {
+                                      updateTaskFields(task.id, {
+                                        deletionRequest: {
+                                          requestedBy: currentUser?.id || "",
+                                          requestedByName: currentUser?.name || "",
+                                          requestedAt: new Date().toISOString(),
+                                          status: "pending"
+                                        }
+                                      });
+                                      setConfirmRequestDeleteId(null);
+                                    }}
+                                    className="px-2 py-1 text-[10px] bg-orange-600 hover:bg-orange-500 text-white rounded font-bold cursor-pointer transition-all"
+                                  >
+                                    Solicitar
+                                  </button>
+                                  <button
+                                    onClick={() => setConfirmRequestDeleteId(null)}
+                                    className="px-2 py-1 text-[10px] bg-gray-200 dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 rounded cursor-pointer transition-all"
+                                  >
+                                    Voltar
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  id={`request-delete-task-btn-${task.id}`}
+                                  onClick={() => {
+                                    setConfirmRequestDeleteId(task.id);
+                                  }}
+                                  className="p-1.5 bg-orange-500/10 hover:bg-orange-500/25 text-orange-600 dark:text-orange-400 rounded-lg transition-all shrink-0 cursor-pointer"
+                                  title="Solicitar Exclusão ao Líder"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )
+                            )
+                          )}
+                        </div>
                       )}
                     </div>
  
@@ -471,38 +552,107 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ canEdit }) => {
                         >
                           {/* List items */}
                           <div className="space-y-1.5">
-                            {task.checklist.map((item) => (
-                              <div
-                                id={`subtask-row-${item.id}`}
-                                key={item.id}
-                                className="flex items-center justify-between gap-2 p-1.5 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-850"
-                              >
-                                <button
-                                  id={`toggle-subitem-btn-${item.id}`}
-                                  type="button"
-                                  onClick={() => handleToggleCheckItem(task, item)}
-                                  className="flex-1 text-left flex items-start gap-1.5 text-gray-700 dark:text-zinc-300"
+                            {task.checklist.map((item, idx) => {
+                              const isFirst = idx === 0;
+                              const isLast = idx === task.checklist.length - 1;
+                              const isEditing = editingSubTaskId === item.id;
+
+                              return (
+                                <div
+                                  id={`subtask-row-${item.id}`}
+                                  key={item.id}
+                                  className="flex items-center justify-between gap-2 p-1.5 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-850"
                                 >
-                                  {item.done ? (
-                                    <CheckSquare className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                                  {isEditing ? (
+                                    <input
+                                      id={`edit-subtask-input-${item.id}`}
+                                      type="text"
+                                      value={editingSubTaskText}
+                                      onChange={(e) => setEditingSubTaskText(e.target.value)}
+                                      onBlur={() => handleSaveSubTaskText(task, item.id)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") handleSaveSubTaskText(task, item.id);
+                                        if (e.key === "Escape") setEditingSubTaskId(null);
+                                      }}
+                                      className="flex-1 px-2 py-1 text-xs bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-md text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-sky-500"
+                                      autoFocus
+                                    />
                                   ) : (
-                                    <Square className="w-3.5 h-3.5 text-gray-300 hover:text-sky-500 shrink-0 mt-0.5" />
+                                    <button
+                                      id={`toggle-subitem-btn-${item.id}`}
+                                      type="button"
+                                      onClick={() => handleToggleCheckItem(task, item)}
+                                      onDoubleClick={() => {
+                                        if (canEdit) {
+                                          setEditingSubTaskId(item.id);
+                                          setEditingSubTaskText(item.text);
+                                        }
+                                      }}
+                                      className="flex-1 text-left flex items-start gap-1.5 text-gray-700 dark:text-zinc-300"
+                                    >
+                                      {item.done ? (
+                                        <CheckSquare className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                                      ) : (
+                                        <Square className="w-3.5 h-3.5 text-gray-300 hover:text-sky-500 shrink-0 mt-0.5" />
+                                      )}
+                                      <span className={`leading-relaxed ${item.done ? "line-through text-gray-400 decoration-gray-300" : ""}`}>
+                                        {item.text}
+                                      </span>
+                                    </button>
                                   )}
-                                  <span className={`leading-relaxed ${item.done ? "line-through text-gray-400 decoration-gray-300" : ""}`}>
-                                    {item.text}
-                                  </span>
-                                </button>
-                                {canEdit && (
-                                  <button
-                                    id={`delete-subitem-btn-${item.id}`}
-                                    onClick={() => handleDeleteSubTask(task, item)}
-                                    className="p-1 hover:bg-red-50 hover:text-red-500 rounded text-gray-400 shrink-0"
-                                  >
-                                    <X className="w-3 h-3" />
-                                  </button>
-                                )}
-                              </div>
-                            ))}
+
+                                  {canEdit && !isEditing && (
+                                    <div className="flex items-center gap-0.5 shrink-0">
+                                      <button
+                                        id={`move-up-subtask-${item.id}`}
+                                        type="button"
+                                        disabled={isFirst}
+                                        onClick={() => handleMoveSubTask(task, idx, -1)}
+                                        className={`p-1 rounded text-gray-400 hover:text-sky-500 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-all ${
+                                          isFirst ? "opacity-30 cursor-not-allowed" : "cursor-pointer"
+                                        }`}
+                                        title="Mover para cima"
+                                      >
+                                        <ChevronUp className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        id={`move-down-subtask-${item.id}`}
+                                        type="button"
+                                        disabled={isLast}
+                                        onClick={() => handleMoveSubTask(task, idx, 1)}
+                                        className={`p-1 rounded text-gray-400 hover:text-sky-500 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-all ${
+                                          isLast ? "opacity-30 cursor-not-allowed" : "cursor-pointer"
+                                        }`}
+                                        title="Mover para baixo"
+                                      >
+                                        <ChevronDown className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        id={`edit-subtask-${item.id}`}
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingSubTaskId(item.id);
+                                          setEditingSubTaskText(item.text);
+                                        }}
+                                        className="p-1 rounded text-gray-400 hover:text-sky-500 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-all cursor-pointer"
+                                        title="Editar subtarefa"
+                                      >
+                                        <Pencil className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        id={`delete-subitem-btn-${item.id}`}
+                                        type="button"
+                                        onClick={() => handleDeleteSubTask(task, item)}
+                                        className="p-1 hover:bg-red-50 hover:text-red-500 rounded text-gray-400 shrink-0 cursor-pointer"
+                                        title="Excluir subtarefa"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
                             {totalItems === 0 && (
                               <p className="p-1 italic text-gray-400 dark:text-zinc-500 text-[10px]">
                                 Sem subtarefas associadas. Crie uma abaixo!
@@ -727,6 +877,141 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ canEdit }) => {
                     className="px-5 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl shadow-xs transition-all"
                   >
                     Salvar Tarefa
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* OVERLAY DIALOG: EDIT EXISTING TASK */}
+      <AnimatePresence>
+        {editingTask && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white dark:bg-zinc-900 rounded-3xl p-6 w-full max-w-md border border-gray-200 dark:border-zinc-800 shadow-2xl relative max-h-[90dvh] overflow-y-auto scrollbar-thin"
+            >
+              <button
+                id="close-edit-task-btn"
+                onClick={() => setEditingTask(null)}
+                className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <h3 className="text-sm font-bold text-gray-900 dark:text-zinc-50 mb-4 flex items-center gap-2">
+                <Pencil className="w-5 h-5 text-sky-500" />
+                <span>Editar Tarefa</span>
+              </h3>
+
+              <form onSubmit={handleEditTaskSubmit} className="space-y-4 text-xs">
+                {/* Title */}
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 dark:text-zinc-505 uppercase mb-1">Título da Tarefa</label>
+                  <input
+                    id="edit-task-title"
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    placeholder="Ex: Protótipo de Design, Revisão teórica"
+                    className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-1 focus:ring-sky-500 text-gray-900 dark:text-white"
+                    required
+                  />
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 dark:text-zinc-505 uppercase mb-1">Descrição</label>
+                  <textarea
+                    id="edit-task-desc"
+                    value={editDesc}
+                    onChange={(e) => setEditDesc(e.target.value)}
+                    placeholder="Detalhes adicionais..."
+                    className="w-full px-3.5 py-2 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-xl focus:outline-none text-gray-900 dark:text-white h-16 resize-none"
+                  />
+                </div>
+
+                {/* Priority Selection badges */}
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 dark:text-zinc-505 uppercase mb-2">Prioridade</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(["low", "medium", "high"] as const).map((pType) => (
+                      <button
+                        id={`edit-priority-btn-${pType}`}
+                        key={pType}
+                        type="button"
+                        onClick={() => setEditPriority(pType)}
+                        className={`py-2 px-3 border rounded-xl font-bold uppercase text-[9px] transition-all tracking-wider ${
+                          editPriority === pType
+                            ? pType === "high"
+                              ? "bg-rose-500 text-white border-rose-500 shadow-xs"
+                              : pType === "medium"
+                              ? "bg-amber-500 text-white border-amber-500 shadow-xs"
+                              : "bg-emerald-500 text-white border-emerald-500 shadow-xs"
+                            : "bg-gray-50 border-gray-200 dark:bg-zinc-800 dark:border-zinc-700 text-gray-500 dark:text-zinc-400"
+                        }`}
+                      >
+                        {pType === "high" ? "Alta" : pType === "medium" ? "Média" : "Baixa"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Due Date */}
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 dark:text-zinc-505 uppercase mb-1">Data Limite (Prazo)</label>
+                    <input
+                      id="edit-task-due-date"
+                      type="date"
+                      value={editDueDate}
+                      onChange={(e) => setEditDueDate(e.target.value)}
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-1 focus:ring-sky-500 text-gray-950 dark:text-gray-50"
+                    />
+                  </div>
+
+                  {/* Representative assignee selector */}
+                  {!isPersonal && (
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 dark:text-zinc-505 uppercase mb-1">Atribuir a</label>
+                      <select
+                        id="edit-task-assigned-to"
+                        value={editAssignedTo}
+                        onChange={(e) => setEditAssignedTo(e.target.value)}
+                        className="w-full px-3 py-2.5 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-1 focus:ring-sky-500 text-gray-800 dark:text-zinc-200"
+                      >
+                        <option value="">Ninguém / Solo</option>
+                        <option value="all">Fazer Geral (Todos)</option>
+                        {groupMembers.map((m) => (
+                          <option key={m.userId} value={m.userId}>
+                            {m.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                {/* Submitting Actions */}
+                <div className="flex gap-2 justify-end font-semibold pt-2">
+                  <button
+                    id="cancel-edit-task"
+                    type="button"
+                    onClick={() => setEditingTask(null)}
+                    className="px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-gray-500 rounded-lg"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    id="submit-edit-task"
+                    type="submit"
+                    className="px-5 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl shadow-xs transition-all"
+                  >
+                    Salvar Alterações
                   </button>
                 </div>
               </form>
