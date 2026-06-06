@@ -5,6 +5,8 @@
 
 import React, { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
+import { db, isDemoMode } from "../db/firebase";
+import { collection, getDocs } from "firebase/firestore";
 import {
   CheckSquare,
   StickyNote,
@@ -22,7 +24,15 @@ import {
   Mail,
   User2,
   Menu,
-  Bell
+  Bell,
+  Trash2,
+  Plus,
+  ChevronDown,
+  ChevronUp,
+  LogOut,
+  Upload,
+  Image,
+  Settings
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { TaskBoard } from "./TaskBoard";
@@ -65,11 +75,219 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
     setChatMobileView,
     selectedDmUserId,
     setSelectedDmUserId,
+    createGroup,
+    joinGroup,
+    leaveGroup,
+    updateGroup,
+    deleteGroup,
+    deleteSubgroup,
   } = useApp();
   const [showManagePermissions, setShowManagePermissions] = useState(false);
   const [showSubgroupMembers, setShowSubgroupMembers] = useState(false);
   const [subPermissions, setSubPermissions] = useState<{ [uId: string]: boolean }>({});
   const [isUpdatingPerm, setIsUpdatingPerm] = useState<string | null>(null);
+
+  // Dashboard & group branding state variables
+  const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
+  const [createGroupName, setCreateGroupName] = useState("");
+  const [createGroupDesc, setCreateGroupDesc] = useState("");
+  const [isCreatingGroupLoading, setIsCreatingGroupLoading] = useState(false);
+
+  const [showJoinGroupModal, setShowJoinGroupModal] = useState(false);
+  const [joinCode, setJoinCode] = useState("");
+  const [isJoiningGroupLoading, setIsJoiningGroupLoading] = useState(false);
+
+  const [showManageGroupModal, setShowManageGroupModal] = useState(false);
+  const [manageGroupObj, setManageGroupObj] = useState<any>(null);
+  const [manageGroupName, setManageGroupName] = useState("");
+  const [manageGroupDesc, setManageGroupDesc] = useState("");
+  const [manageGroupBg, setManageGroupBg] = useState("");
+  const [isManagingGroupLoading, setIsManagingGroupLoading] = useState(false);
+
+  const [expandedGroupIds, setExpandedGroupIds] = useState<{ [id: string]: boolean }>({});
+  const [loadedSubgroups, setLoadedSubgroups] = useState<{ [groupId: string]: any[] }>({});
+  const [loadingSubgroups, setLoadingSubgroups] = useState<{ [groupId: string]: boolean }>({});
+
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          let width = img.width;
+          let height = img.height;
+
+          // Target dimensions: fit inside 1024x1024
+          const MAX_DIM = 1024;
+          if (width > MAX_DIM || height > MAX_DIM) {
+            if (width > height) {
+              height = Math.round((height * MAX_DIM) / width);
+              width = MAX_DIM;
+            } else {
+              width = Math.round((width * MAX_DIM) / height);
+              height = MAX_DIM;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+            resolve(dataUrl);
+          } else {
+            reject(new Error("Erro ao desenhar imagem no canvas."));
+          }
+        };
+        img.onerror = () => reject(new Error("Formato de imagem inválido."));
+        img.src = event.target?.result as string;
+      };
+      reader.onerror = () => reject(new Error("Erro ao ler o arquivo."));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Validate size limit (max 5MB input file, we will compress to < 500KB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Por favor, selecione um arquivo de imagem menor que 5MB.");
+      return;
+    }
+
+    try {
+      const base64Compressed = await compressImage(file);
+      setManageGroupBg(base64Compressed);
+    } catch (err: any) {
+      alert(err.message || "Erro ao processar a imagem.");
+    }
+  };
+
+  const fetchSubgroupsForGroup = async (groupId: string) => {
+    if (loadingSubgroups[groupId]) return;
+    setLoadingSubgroups((prev) => ({ ...prev, [groupId]: true }));
+    try {
+      if (isDemoMode) {
+        const key = `demo_group_subgroups_${groupId}`;
+        const subs = JSON.parse(localStorage.getItem(key) || "[]");
+        setLoadedSubgroups((prev) => ({ ...prev, [groupId]: subs }));
+      } else {
+        const subsRef = collection(db, "groups", groupId, "subgroups");
+        const snap = await getDocs(subsRef);
+        const arr: any[] = [];
+        snap.forEach((doc) => arr.push({ ...doc.data(), id: doc.id }));
+        setLoadedSubgroups((prev) => ({ ...prev, [groupId]: arr }));
+      }
+    } catch (e) {
+      console.error("Error loading subgroups for card", e);
+    } finally {
+      setLoadingSubgroups((prev) => ({ ...prev, [groupId]: false }));
+    }
+  };
+
+  const toggleGroupExpand = async (groupId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const isExpanded = !!expandedGroupIds[groupId];
+    setExpandedGroupIds((prev) => ({ ...prev, [groupId]: !isExpanded }));
+    
+    // If we're expanding and haven't loaded yet, fetch them
+    if (!isExpanded && !loadedSubgroups[groupId]) {
+      await fetchSubgroupsForGroup(groupId);
+    }
+  };
+
+  const handleDeleteSubgroup = async (groupId: string, subgroupId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm("Tem certeza de que deseja excluir este subgrupo? Todas as tarefas e arquivos dele serão perdidos permanentemente.")) return;
+    try {
+      await deleteSubgroup(subgroupId);
+      setLoadedSubgroups((prev) => ({
+        ...prev,
+        [groupId]: (prev[groupId] || []).filter((s) => s.id !== subgroupId)
+      }));
+    } catch (err) {
+      alert("Erro ao excluir subgrupo.");
+    }
+  };
+
+  const handleDeleteGroup = async (groupId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm("Tem certeza de que deseja excluir este grupo? Esta ação é irreversível e excluirá todos os dados do grupo.")) return;
+    try {
+      await deleteGroup(groupId);
+    } catch (err) {
+      alert("Erro ao excluir grupo.");
+    }
+  };
+
+  const handleLeaveGroup = async (groupId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm("Tem certeza de que deseja sair deste grupo?")) return;
+    try {
+      await leaveGroup(groupId);
+    } catch (err) {
+      alert("Erro ao sair do grupo.");
+    }
+  };
+
+  const handleOpenManageGroup = (group: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setManageGroupObj(group);
+    setManageGroupName(group.name);
+    setManageGroupDesc(group.description || "");
+    setManageGroupBg(group.backgroundImage || "");
+    setShowManageGroupModal(true);
+  };
+
+  const handleManageGroupSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manageGroupName.trim() || !manageGroupObj) return;
+    setIsManagingGroupLoading(true);
+    try {
+      await updateGroup(manageGroupObj.id, manageGroupName, manageGroupDesc, manageGroupBg);
+      setShowManageGroupModal(false);
+      setManageGroupObj(null);
+    } catch (err) {
+      alert("Erro ao atualizar o grupo.");
+    } finally {
+      setIsManagingGroupLoading(false);
+    }
+  };
+
+  const handleCreateGroupSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!createGroupName.trim()) return;
+    setIsCreatingGroupLoading(true);
+    try {
+      await createGroup(createGroupName, createGroupDesc);
+      setCreateGroupName("");
+      setCreateGroupDesc("");
+      setShowCreateGroupModal(false);
+    } catch (err) {
+      alert("Erro ao criar o grupo.");
+    } finally {
+      setIsCreatingGroupLoading(false);
+    }
+  };
+
+  const handleJoinGroupSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!joinCode.trim()) return;
+    setIsJoiningGroupLoading(true);
+    try {
+      await joinGroup(joinCode);
+      setJoinCode("");
+      setShowJoinGroupModal(false);
+    } catch (err: any) {
+      alert(err.message || "Código inválido.");
+    } finally {
+      setIsJoiningGroupLoading(false);
+    }
+  };
 
   // States and hooks for visual notification bell
   const [showNotifications, setShowNotifications] = useState(false);
@@ -196,62 +414,482 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
   // Render when nothing is selected in Group Mode
   if (!isPersonal && !selectedGroup) {
     return (
-      <div className="flex-1 min-h-screen flex items-center justify-center bg-gray-50 dark:bg-zinc-950 p-8 font-sans">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.98 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="text-center max-w-md p-8 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-3xl shadow-xl"
-        >
-          <div className="w-16 h-16 rounded-full bg-sky-500/10 text-sky-500 flex items-center justify-center mx-auto mb-4 border border-sky-500/20">
-            <Users className="w-8 h-8" />
+      <div className="flex-1 min-h-screen flex flex-col bg-gray-50 dark:bg-zinc-950 p-4 sm:p-8 font-sans overflow-y-auto select-none">
+        {/* Dashboard Header */}
+        <div className="max-w-6xl mx-auto w-full flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center gap-2">
+              <Users className="w-8 h-8 text-sky-500" />
+              Painel de Grupos
+            </h1>
+            <p className="text-sm text-gray-500 dark:text-zinc-400 mt-1">
+              Visualize, personalize e gerencie os workspaces colaborativos que você participa.
+            </p>
           </div>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-zinc-50 mb-2">
-            Nenhum Grupo Selecionado
-          </h2>
-          <p className="text-sm text-gray-500 dark:text-zinc-400">
-            Selecione um grupo colaborativo ou crie um novo na aba esquerda. Ou navegue pela sua Área Pessoal de organização individual.
-          </p>
-          <div className="mt-6 flex flex-col gap-2.5">
+          <div className="flex flex-wrap gap-2">
             <button
-              onClick={() => onOpenProfile("friends")}
-              className="w-full py-2.5 px-4 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer font-semibold"
+              onClick={() => setShowCreateGroupModal(true)}
+              className="py-2 px-4 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-md hover:shadow-lg transition-all cursor-pointer font-semibold"
             >
-              <Users className="w-4 h-4" />
-              <span>Gerenciar Amigos</span>
+              <Plus className="w-4 h-4" />
+              Criar Grupo
             </button>
             <button
-               onClick={() => {
-                 setActiveTab("groups");
-                 setChatMobileView("list");
-                 setSelectedDmUserId(null);
-                 if (groups.length > 0) {
-                   setSelectedGroup(groups[0]);
-                   setActiveModule("chat");
-                 } else {
-                   alert("Você precisa criar ou entrar em um grupo primeiro para acessar os chats.");
-                 }
-               }}
-              className="w-full py-2.5 px-4 bg-sky-600 hover:bg-sky-500 dark:bg-sky-600/20 dark:hover:bg-sky-600/30 text-white dark:text-sky-400 text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer font-semibold"
+              onClick={() => setShowJoinGroupModal(true)}
+              className="py-2 px-4 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-850 dark:text-zinc-200 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer font-semibold"
             >
-              <MessageSquare className="w-4 h-4" />
-              <span>Acessar Chats & DMs</span>
+              <Users className="w-4 h-4" />
+              Entrar em Grupo
             </button>
             <button
               onClick={() => setActiveTab("personal")}
-              className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer font-semibold"
+              className="py-2 px-4 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-md hover:shadow-lg transition-all cursor-pointer font-semibold"
             >
               <CheckSquare className="w-4 h-4" />
-              <span>Ir para Área Pessoal</span>
+              Área Pessoal
             </button>
             <button
               onClick={onOpenMobileSidebar}
-              className="md:hidden w-full py-2.5 px-4 bg-gray-100 dark:bg-zinc-850 hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-700 dark:text-zinc-200 text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+              className="md:hidden py-2 px-4 bg-zinc-200 dark:bg-zinc-850 hover:bg-zinc-300 dark:hover:bg-zinc-800 text-zinc-750 dark:text-zinc-250 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
             >
               <Menu className="w-4 h-4" />
-              <span>Abrir Menu de Navegação</span>
+              Menu
             </button>
           </div>
-        </motion.div>
+        </div>
+
+        {/* Groups Grid */}
+        <div className="max-w-6xl mx-auto w-full flex-1">
+          {groups.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center py-16 px-4 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-3xl shadow-sm"
+            >
+              <div className="w-16 h-16 rounded-full bg-sky-500/10 text-sky-500 flex items-center justify-center mx-auto mb-4 border border-sky-500/20">
+                <Users className="w-8 h-8" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-zinc-100 mb-1">Você não participa de nenhum grupo</h3>
+              <p className="text-sm text-gray-500 dark:text-zinc-400 max-w-sm mx-auto mb-6">
+                Crie um novo grupo para colaborar com sua equipe ou insira um código de convite para participar de um existente.
+              </p>
+              <div className="flex justify-center gap-3">
+                <button
+                  onClick={() => setShowCreateGroupModal(true)}
+                  className="py-2.5 px-5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer"
+                >
+                  Criar Primeiro Grupo
+                </button>
+                <button
+                  onClick={() => setShowJoinGroupModal(true)}
+                  className="py-2.5 px-5 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer"
+                >
+                  Inserir Código
+                </button>
+              </div>
+            </motion.div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {groups.map((group) => {
+                const isCreator = group.creatorId === currentUser?.id;
+                const isExpanded = !!expandedGroupIds[group.id];
+                const bgImage = group.backgroundImage;
+
+                return (
+                  <motion.div
+                    key={group.id}
+                    layout
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    whileHover={{ y: -4, transition: { duration: 0.2 } }}
+                    onClick={() => {
+                      setSelectedGroup(group);
+                      setSelectedSubgroup(null);
+                    }}
+                    style={{
+                      backgroundImage: bgImage ? `url(${bgImage})` : undefined,
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                    }}
+                    className={`relative overflow-hidden rounded-2xl border border-gray-200 dark:border-zinc-800 shadow-md hover:shadow-xl cursor-pointer transition-all duration-300 flex flex-col justify-between min-h-[220px] ${
+                      !bgImage ? "bg-gradient-to-br from-zinc-900/90 via-zinc-950/95 to-slate-900/90" : ""
+                    }`}
+                  >
+                    {/* Background darkening overlay/scrim for legibility */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-black/45 z-0" />
+
+                    {/* Card Content - Top area */}
+                    <div className="relative z-10 p-5 flex flex-col justify-between h-full flex-1">
+                      <div className="w-full">
+                        <div className="flex items-start justify-between gap-2 w-full">
+                          <span className="text-[10px] uppercase font-bold tracking-widest text-sky-400 bg-sky-950/60 px-2.5 py-1 rounded-full border border-sky-850/40 backdrop-blur-xs">
+                            CÓD: {group.code}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {isCreator ? (
+                              <button
+                                onClick={(e) => handleOpenManageGroup(group, e)}
+                                title="Gerenciar grupo"
+                                className="p-1.5 rounded-lg bg-zinc-900/60 hover:bg-zinc-800/80 text-gray-300 hover:text-white border border-zinc-700/30 transition-all cursor-pointer"
+                              >
+                                <Settings className="w-3.5 h-3.5" />
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        <h3 className="text-lg font-bold text-white mt-3 leading-snug drop-shadow-sm select-all">
+                          {group.name}
+                        </h3>
+                        <p className="text-xs text-zinc-300 mt-1.5 line-clamp-2 leading-relaxed drop-shadow-xs">
+                          {group.description || "Sem descrição definida para este grupo."}
+                        </p>
+                      </div>
+
+                      {/* Card Actions / Subgroup expandable section */}
+                      <div className="mt-5 relative z-10 w-full">
+                        {/* Subgroups display list (Expanded) */}
+                        <AnimatePresence>
+                          {isExpanded && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: "auto" }}
+                              exit={{ opacity: 0, height: 0 }}
+                              onClick={(e) => e.stopPropagation()} // Prevent card navigation when interacting inside sub list
+                              className="mb-4 pt-3 border-t border-zinc-800/60 flex flex-col gap-1.5 max-h-48 overflow-y-auto scrollbar-none"
+                            >
+                              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">
+                                Subgrupos
+                              </span>
+                              {loadingSubgroups[group.id] ? (
+                                <span className="text-xs text-zinc-500 italic">Carregando subgrupos...</span>
+                              ) : !loadedSubgroups[group.id] || loadedSubgroups[group.id].length === 0 ? (
+                                <span className="text-xs text-zinc-500 italic">Nenhum subgrupo criado.</span>
+                              ) : (
+                                loadedSubgroups[group.id].map((sub) => {
+                                  const canDeleteSub = isCreator || sub.creatorId === currentUser?.id;
+                                  return (
+                                    <div
+                                      key={sub.id}
+                                      onClick={() => {
+                                        setSelectedGroup(group);
+                                        setSelectedSubgroup(sub);
+                                      }}
+                                      className="flex items-center justify-between p-2 rounded-xl bg-zinc-900/60 hover:bg-zinc-800/80 border border-zinc-800/30 transition-all hover:scale-[1.01] cursor-pointer"
+                                    >
+                                      <div className="flex items-center gap-2 overflow-hidden">
+                                        <span
+                                          style={{ backgroundColor: sub.color || "#3b82f6" }}
+                                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                                        />
+                                        <span className="text-xs font-medium text-zinc-200 truncate">
+                                          {sub.name}
+                                        </span>
+                                        {sub.isPrivate && <Lock className="w-3 h-3 text-zinc-400 shrink-0" />}
+                                      </div>
+                                      {canDeleteSub && (
+                                        <button
+                                          onClick={(e) => handleDeleteSubgroup(group.id, sub.id, e)}
+                                          title="Excluir subgrupo"
+                                          className="p-1 rounded-md text-zinc-400 hover:text-rose-450 hover:bg-rose-500/10 transition-all cursor-pointer"
+                                        >
+                                          <Trash2 className="w-3 h-3" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  );
+                                })
+                              )}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+
+                        {/* Bottom Actions Row */}
+                        <div className="flex items-center justify-between gap-2 pt-3 border-t border-zinc-800/40">
+                          <button
+                            onClick={(e) => toggleGroupExpand(group.id, e)}
+                            className="py-1.5 px-3 rounded-lg bg-zinc-900/50 hover:bg-zinc-800/80 text-zinc-300 hover:text-white border border-zinc-800/45 text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            {isExpanded ? (
+                              <>
+                                <ChevronUp className="w-3.5 h-3.5" />
+                                Recolher
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="w-3.5 h-3.5" />
+                                Subgrupos
+                              </>
+                            )}
+                          </button>
+
+                          {isCreator ? (
+                            <button
+                              onClick={(e) => handleDeleteGroup(group.id, e)}
+                              className="py-1.5 px-3 rounded-lg bg-rose-500/10 hover:bg-rose-500/25 text-rose-400 hover:text-rose-300 text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer border border-rose-500/20"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              Excluir
+                            </button>
+                          ) : (
+                            <button
+                              onClick={(e) => handleLeaveGroup(group.id, e)}
+                              className="py-1.5 px-3 rounded-lg bg-zinc-900/50 hover:bg-zinc-800/80 text-zinc-300 hover:text-rose-400 text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer border border-zinc-800/40"
+                            >
+                              <LogOut className="w-3.5 h-3.5" />
+                              Sair
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* MODAL: CREATE GROUP */}
+        <AnimatePresence>
+          {showCreateGroupModal && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[100] p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="w-full max-w-md bg-white dark:bg-zinc-900 border border-gray-250 dark:border-zinc-850 rounded-2xl shadow-2xl overflow-hidden p-6 text-gray-900 dark:text-zinc-100"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold">Criar Novo Grupo</h3>
+                  <button
+                    onClick={() => setShowCreateGroupModal(false)}
+                    className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-400 hover:text-gray-600 transition-all cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <form onSubmit={handleCreateGroupSubmit} className="flex flex-col gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">
+                      Nome do Grupo
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={createGroupName}
+                      onChange={(e) => setCreateGroupName(e.target.value)}
+                      placeholder="Ex: Equipe de Engenharia"
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-850 border border-gray-350 dark:border-zinc-700 rounded-xl focus:outline-none focus:border-sky-500 text-sm text-gray-900 dark:text-zinc-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">
+                      Descrição
+                    </label>
+                    <textarea
+                      value={createGroupDesc}
+                      onChange={(e) => setCreateGroupDesc(e.target.value)}
+                      placeholder="Ex: Desenvolvimento e sprint das novas features"
+                      rows={3}
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-850 border border-gray-350 dark:border-zinc-700 rounded-xl focus:outline-none focus:border-sky-500 text-sm resize-none text-gray-900 dark:text-zinc-100"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateGroupModal(false)}
+                      className="py-2 px-4 bg-zinc-150 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs font-bold rounded-xl transition-all cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isCreatingGroupLoading}
+                      className="py-2 px-4 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                    >
+                      {isCreatingGroupLoading ? "Criando..." : "Criar"}
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* MODAL: JOIN GROUP */}
+        <AnimatePresence>
+          {showJoinGroupModal && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[100] p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="w-full max-w-sm bg-white dark:bg-zinc-900 border border-gray-255 dark:border-zinc-850 rounded-2xl shadow-2xl overflow-hidden p-6 text-gray-900 dark:text-zinc-100"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold">Entrar em um Grupo</h3>
+                  <button
+                    onClick={() => setShowJoinGroupModal(false)}
+                    className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-400 hover:text-gray-600 transition-all cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <form onSubmit={handleJoinGroupSubmit} className="flex flex-col gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">
+                      Código de Acesso (6 dígitos)
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={6}
+                      value={joinCode}
+                      onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                      placeholder="Ex: AB3D9E"
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-850 border border-gray-350 dark:border-zinc-700 rounded-xl focus:outline-none focus:border-sky-500 text-sm text-center font-mono font-bold tracking-widest text-gray-900 dark:text-zinc-100"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowJoinGroupModal(false)}
+                      className="py-2 px-4 bg-zinc-150 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs font-bold rounded-xl transition-all cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isJoiningGroupLoading}
+                      className="py-2 px-4 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-sm font-semibold"
+                    >
+                      {isJoiningGroupLoading ? "Acessando..." : "Entrar"}
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* MODAL: MANAGE GROUP SETTINGS / BRANDING */}
+        <AnimatePresence>
+          {showManageGroupModal && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[100] p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="w-full max-w-md bg-white dark:bg-zinc-900 border border-gray-255 dark:border-zinc-850 rounded-2xl shadow-2xl overflow-hidden p-6 text-gray-900 dark:text-zinc-100"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold">Personalizar Grupo</h3>
+                  <button
+                    onClick={() => {
+                      setShowManageGroupModal(false);
+                      setManageGroupObj(null);
+                    }}
+                    className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-400 hover:text-gray-600 transition-all cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <form onSubmit={handleManageGroupSubmit} className="flex flex-col gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">
+                      Nome do Grupo
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={manageGroupName}
+                      onChange={(e) => setManageGroupName(e.target.value)}
+                      placeholder="Ex: Equipe de Engenharia"
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-850 border border-gray-350 dark:border-zinc-700 rounded-xl focus:outline-none focus:border-sky-500 text-sm text-gray-900 dark:text-zinc-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">
+                      Descrição
+                    </label>
+                    <textarea
+                      value={manageGroupDesc}
+                      onChange={(e) => setManageGroupDesc(e.target.value)}
+                      placeholder="Ex: Desenvolvimento e sprint das novas features"
+                      rows={2}
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-850 border border-gray-350 dark:border-zinc-700 rounded-xl focus:outline-none focus:border-sky-500 text-sm resize-none text-gray-900 dark:text-zinc-100"
+                    />
+                  </div>
+
+                  {/* Custom Background Image Branding */}
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">
+                      Imagem de Fundo Personalizada
+                    </label>
+                    
+                    <div className="flex flex-col gap-3">
+                      {manageGroupBg ? (
+                        <div className="relative h-28 rounded-xl overflow-hidden border border-zinc-700 shadow-inner flex items-center justify-center bg-zinc-950">
+                          <img
+                            src={manageGroupBg}
+                            alt="Background Preview"
+                            className="w-full h-full object-cover opacity-70"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setManageGroupBg("")}
+                            className="absolute top-2 right-2 p-1.5 rounded-lg bg-zinc-900/80 hover:bg-rose-500/80 text-white transition-all cursor-pointer shadow-md"
+                            title="Remover Imagem"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="h-28 rounded-xl border-2 border-dashed border-zinc-700 bg-gray-50 dark:bg-zinc-800/40 flex flex-col items-center justify-center text-center p-4">
+                          <Image className="w-6 h-6 text-zinc-500 mb-1" />
+                          <span className="text-xs font-medium text-zinc-400">Sem imagem de fundo</span>
+                          <span className="text-[10px] text-zinc-500">Usará o gradiente premium padrão</span>
+                        </div>
+                      )}
+
+                      <label className="w-full py-2.5 px-4 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-850 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 border border-zinc-200 dark:border-zinc-750 transition-all cursor-pointer">
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Carregar Imagem (Máx 5MB)</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowManageGroupModal(false);
+                        setManageGroupObj(null);
+                      }}
+                      className="py-2 px-4 bg-zinc-150 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs font-bold rounded-xl transition-all cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isManagingGroupLoading}
+                      className="py-2 px-4 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-sm font-semibold"
+                    >
+                      {isManagingGroupLoading ? "Salvando..." : "Salvar Alterações"}
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }

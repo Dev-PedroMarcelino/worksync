@@ -21,7 +21,9 @@ export interface Group {
   code: string; // 6-digit uppercase code
   creatorId: string;
   createdAt: string;
+  backgroundImage?: string; // base64 string
 }
+
 
 export interface GroupMember {
   userId: string;

@@ -98,6 +98,8 @@ interface AppContextType {
   createGroup: (name: string, description: string) => Promise<Group>;
   joinGroup: (code: string) => Promise<Group>;
   leaveGroup: (groupId: string) => Promise<void>;
+  updateGroup: (groupId: string, name: string, description: string, backgroundImage?: string) => Promise<void>;
+  deleteGroup: (groupId: string) => Promise<void>;
 
   // Actions - Subgroups
   createSubgroup: (name: string, description: string, color: string, isPrivate?: boolean) => Promise<Subgroup>;
@@ -1765,6 +1767,84 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const updateGroup = async (groupId: string, name: string, description: string, backgroundImage?: string): Promise<void> => {
+    if (!currentUser) throw new Error("Não autenticado");
+
+    if (isDemoMode) {
+      const allDemoGroups = JSON.parse(localStorage.getItem("demo_groups") || "[]") as Group[];
+      const updatedGroups = allDemoGroups.map((g) => {
+        if (g.id === groupId) {
+          return { ...g, name, description, backgroundImage };
+        }
+        return g;
+      });
+      localStorage.setItem("demo_groups", JSON.stringify(updatedGroups));
+      
+      setGroups((prev) =>
+        prev.map((g) => (g.id === groupId ? { ...g, name, description, backgroundImage } : g))
+      );
+      if (selectedGroup?.id === groupId) {
+        setSelectedGroup({ ...selectedGroup, name, description, backgroundImage });
+      }
+    } else {
+      try {
+        const groupRef = doc(db, "groups", groupId);
+        const updates: Partial<Group> = { name, description };
+        if (backgroundImage !== undefined) {
+          updates.backgroundImage = backgroundImage;
+        }
+        await updateDoc(groupRef, updates as any);
+        
+        // Update local state for groups list if updated
+        setGroups((prev) =>
+          prev.map((g) => (g.id === groupId ? { ...g, name, description, ...(backgroundImage !== undefined ? { backgroundImage } : {}) } : g))
+        );
+        if (selectedGroup?.id === groupId) {
+          setSelectedGroup((prev) => prev ? { ...prev, name, description, ...(backgroundImage !== undefined ? { backgroundImage } : {}) } : null);
+        }
+      } catch (e) {
+        handleFirestoreError(e, OperationType.UPDATE, `groups/${groupId}`);
+        throw e;
+      }
+    }
+  };
+
+  const deleteGroup = async (groupId: string): Promise<void> => {
+    if (!currentUser) throw new Error("Não autenticado");
+
+    if (isDemoMode) {
+      const allDemoGroups = JSON.parse(localStorage.getItem("demo_groups") || "[]") as Group[];
+      const filteredGroups = allDemoGroups.filter((g) => g.id !== groupId);
+      localStorage.setItem("demo_groups", JSON.stringify(filteredGroups));
+      
+      localStorage.removeItem(`demo_group_members_${groupId}`);
+      localStorage.removeItem(`demo_group_subgroups_${groupId}`);
+      localStorage.removeItem(`demo_group_messages_${groupId}`);
+      localStorage.removeItem(`demo_group_notifications_${groupId}`);
+      localStorage.removeItem(`demo_audit_logs_${groupId}`);
+
+      setGroups((prev) => prev.filter((g) => g.id !== groupId));
+      if (selectedGroup?.id === groupId) {
+        setSelectedGroup(null);
+        setSelectedSubgroupState(null);
+      }
+    } else {
+      try {
+        const groupRef = doc(db, "groups", groupId);
+        await deleteDoc(groupRef);
+        
+        setGroups((prev) => prev.filter((g) => g.id !== groupId));
+        if (selectedGroup?.id === groupId) {
+          setSelectedGroup(null);
+          setSelectedSubgroupState(null);
+        }
+      } catch (e) {
+        handleFirestoreError(e, OperationType.DELETE, `groups/${groupId}`);
+        throw e;
+      }
+    }
+  };
+
   // --- SUBGROUP ACTIONS ---
 
   const createSubgroup = async (name: string, description: string, color: string, isPrivate?: boolean): Promise<Subgroup> => {
@@ -3111,6 +3191,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         createGroup,
         joinGroup,
         leaveGroup,
+        updateGroup,
+        deleteGroup,
 
         createSubgroup,
         deleteSubgroup,
