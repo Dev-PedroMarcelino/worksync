@@ -91,6 +91,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
   const [createGroupName, setCreateGroupName] = useState("");
   const [createGroupDesc, setCreateGroupDesc] = useState("");
+  const [createGroupBg, setCreateGroupBg] = useState("");
   const [isCreatingGroupLoading, setIsCreatingGroupLoading] = useState(false);
 
   const [showJoinGroupModal, setShowJoinGroupModal] = useState(false);
@@ -263,9 +264,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
     if (!createGroupName.trim()) return;
     setIsCreatingGroupLoading(true);
     try {
-      await createGroup(createGroupName, createGroupDesc);
+      await createGroup(createGroupName, createGroupDesc, createGroupBg);
       setCreateGroupName("");
       setCreateGroupDesc("");
+      setCreateGroupBg("");
       setShowCreateGroupModal(false);
     } catch (err) {
       alert("Erro ao criar o grupo.");
@@ -507,7 +509,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
                       setSelectedSubgroup(null);
                     }}
                     style={{
-                      backgroundImage: bgImage ? `url(${bgImage})` : undefined,
+                      backgroundImage: bgImage ? `url("${bgImage}")` : undefined,
                       backgroundSize: "cover",
                       backgroundPosition: "center",
                     }}
@@ -695,6 +697,64 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
                       className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-850 border border-gray-350 dark:border-zinc-700 rounded-xl focus:outline-none focus:border-sky-500 text-sm resize-none text-gray-900 dark:text-zinc-100"
                     />
                   </div>
+
+                  {/* Custom Background Image Branding */}
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">
+                      Imagem de Fundo Personalizada
+                    </label>
+                    
+                    <div className="flex flex-col gap-3">
+                      {createGroupBg ? (
+                        <div className="relative h-28 rounded-xl overflow-hidden border border-zinc-700 shadow-inner flex items-center justify-center bg-zinc-950">
+                          <img
+                            src={createGroupBg}
+                            alt="Background Preview"
+                            className="w-full h-full object-cover opacity-70"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setCreateGroupBg("")}
+                            className="absolute top-2 right-2 p-1.5 rounded-lg bg-zinc-900/80 hover:bg-rose-500/80 text-white transition-all cursor-pointer shadow-md"
+                            title="Remover Imagem"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="h-28 rounded-xl border-2 border-dashed border-zinc-700 bg-gray-50 dark:bg-zinc-800/40 flex flex-col items-center justify-center text-center p-4">
+                          <Image className="w-6 h-6 text-zinc-500 mb-1" />
+                          <span className="text-xs font-medium text-zinc-400">Sem imagem de fundo</span>
+                          <span className="text-[10px] text-zinc-500">Usará o gradiente premium padrão</span>
+                        </div>
+                      )}
+
+                      <label className="w-full py-2.5 px-4 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-850 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 border border-zinc-200 dark:border-zinc-750 transition-all cursor-pointer">
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Carregar Imagem (Máx 5MB)</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            if (file.size > 5 * 1024 * 1024) {
+                              alert("Por favor, selecione um arquivo de imagem menor que 5MB.");
+                              return;
+                            }
+                            try {
+                              const base64 = await compressImage(file);
+                              setCreateGroupBg(base64);
+                            } catch (err: any) {
+                              alert(err.message || "Erro ao processar a imagem.");
+                            }
+                          }}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
                   <div className="flex justify-end gap-2 mt-2">
                     <button
                       type="button"

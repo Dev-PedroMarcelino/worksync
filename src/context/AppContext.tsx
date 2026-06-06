@@ -95,7 +95,7 @@ interface AppContextType {
   toggleTheme: () => void;
 
   // Actions - Groups
-  createGroup: (name: string, description: string) => Promise<Group>;
+  createGroup: (name: string, description: string, backgroundImage?: string) => Promise<Group>;
   joinGroup: (code: string) => Promise<Group>;
   leaveGroup: (groupId: string) => Promise<void>;
   updateGroup: (groupId: string, name: string, description: string, backgroundImage?: string) => Promise<void>;
@@ -530,9 +530,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const allDemoGroups = JSON.parse(localStorage.getItem("demo_groups") || "[]") as Group[];
       const userJoinedGroups = allDemoGroups.filter(
         (g) =>
-          g.creatorId === currentUser.id ||
-          (JSON.parse(localStorage.getItem(`demo_group_members_${g.id}`) || "[]") as GroupMember[]).some(
-            (m) => m.userId === currentUser.id
+          g.id && !g.id.startsWith("dm_") && g.code !== "DM" && (
+            g.creatorId === currentUser.id ||
+            (JSON.parse(localStorage.getItem(`demo_group_members_${g.id}`) || "[]") as GroupMember[]).some(
+              (m) => m.userId === currentUser.id
+            )
           )
       );
       setGroups(userJoinedGroups);
@@ -673,6 +675,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const checkAllPromises = snapshot.docs.map(async (gDoc) => {
               try {
                 const group = { ...gDoc.data(), id: gDoc.id } as Group;
+                if (group.id && group.id.startsWith("dm_")) return;
+                if (group.code === "DM") return;
+                
                 if (group.creatorId === currentUser.id) {
                   myGroups.push(group);
                 } else {
@@ -1616,7 +1621,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return code;
   };
 
-  const createGroup = async (name: string, description: string): Promise<Group> => {
+  const createGroup = async (name: string, description: string, backgroundImage?: string): Promise<Group> => {
     if (!currentUser) throw new Error("Não autenticado");
     const groupId = Math.random().toString(36).substring(2, 9);
     const code = generate6DigitCode();
@@ -1628,6 +1633,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       code,
       creatorId: currentUser.id,
       createdAt: new Date().toISOString(),
+      backgroundImage: backgroundImage || "",
     };
 
     const initialMember: GroupMember = {
