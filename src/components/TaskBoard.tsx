@@ -557,7 +557,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ canEdit }) => {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white dark:bg-zinc-900 rounded-3xl p-6 w-full max-w-md border border-gray-200 dark:border-zinc-800 shadow-2xl relative"
+              className="bg-white dark:bg-zinc-900 rounded-3xl p-6 w-full max-w-md border border-gray-200 dark:border-zinc-800 shadow-2xl relative max-h-[90dvh] overflow-y-auto scrollbar-thin"
             >
               <button
                 id="close-add-task-btn"

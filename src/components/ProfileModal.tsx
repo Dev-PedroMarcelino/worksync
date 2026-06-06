@@ -92,7 +92,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose, initialTab 
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
-        className="w-full max-w-md bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-3xl p-6 relative overflow-hidden shadow-2xl"
+        className="w-full max-w-md bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-3xl p-6 relative max-h-[90dvh] overflow-y-auto scrollbar-thin shadow-2xl"
       >
         <button
           id="close-profile-modal-btn"

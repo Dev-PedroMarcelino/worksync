@@ -54,9 +54,13 @@ export const GroupChatModule: React.FC<GroupChatModuleProps> = ({
     scrollToBottom();
   }, [chatMessages, selectedDmUserId]);
 
-  if (!currentUser || !selectedGroup) {
+  if (!currentUser) {
+    return null;
+  }
+
+  if (!selectedDmUserId && !selectedGroup) {
     return (
-      <div className="flex-1 flex items-center justify-center p-8 bg-gray-50/50 dark:bg-zinc-950/20 text-gray-500">
+      <div className="flex-1 flex items-center justify-center p-8 bg-gray-50/50 dark:bg-zinc-950/20 text-gray-550">
         Nenhum grupo ativo selecionado para chat.
       </div>
     );
@@ -64,18 +68,7 @@ export const GroupChatModule: React.FC<GroupChatModuleProps> = ({
 
   // Filter messages based on layout
   const isGroupRoom = selectedDmUserId === null;
-  const activeRoomMessages = chatMessages.filter((msg) => {
-    if (isGroupRoom) {
-      // Group chat contains messages with empty dmTo
-      return !msg.dmTo;
-    } else {
-      // DM chat contains messages between currentUser and selectedDmUserId
-      return (
-        (msg.senderId === currentUser.id && msg.dmTo === selectedDmUserId) ||
-        (msg.senderId === selectedDmUserId && msg.dmTo === currentUser.id)
-      );
-    }
-  });
+  const activeRoomMessages = chatMessages;
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -219,150 +212,12 @@ export const GroupChatModule: React.FC<GroupChatModuleProps> = ({
   const roomDetails = getActiveRoomDetails();
 
   return (
-    <div className="flex-1 w-full max-w-full flex min-h-0 md:divide-x divide-gray-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900 md:rounded-3xl md:border border-gray-200 dark:border-zinc-800 overflow-hidden md:shadow-sm" id="group-chat-module">
-      {/* LEFT PANEL: ROOMS list */}
-      <div className={`w-full md:w-64 flex flex-col shrink-0 bg-gray-50/50 dark:bg-zinc-950/20 ${chatMobileView === "list" ? "flex" : "hidden md:flex"}`}>
-        {/* Panel header */}
-        <div className="p-4 border-b border-gray-200 dark:border-zinc-800">
-          <h2 className="text-sm font-bold text-gray-900 dark:text-zinc-50 flex items-center gap-2">
-            <MessageSquare className="w-4 h-4 text-sky-500" />
-            <span>Canais & Recados</span>
-          </h2>
-        </div>
-
-        {/* Navigation lists */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-4">
-          {/* Section: Channels */}
-          <div>
-            <span className="px-2 text-[10px] font-bold text-gray-400 dark:text-zinc-500 uppercase tracking-wider block mb-1">
-              Painel Principal
-            </span>
-            <button
-              id="channel-group-chat"
-              onClick={() => handleSelectDmUser(null)}
-              className={`w-full text-left px-3 py-2.5 rounded-xl transition-all font-semibold text-xs flex items-center gap-2 ${
-                isGroupRoom
-                  ? "bg-sky-600 text-white shadow-sm font-bold"
-                  : "text-gray-600 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800/80"
-              }`}
-            >
-              <MessageCircle className="w-4 h-4 shrink-0" />
-              <div className="truncate">
-                <p className="truncate">Mural do Grupo</p>
-                <p className={`text-[10px] font-normal truncate opacity-85 ${isGroupRoom ? "text-sky-100" : "text-gray-400"}`}>
-                  Aberta para todos
-                </p>
-              </div>
-            </button>
-          </div>
-
-          {/* Section: Direct messages */}
-          <div>
-            <span className="px-2 text-[10px] font-bold text-gray-400 dark:text-zinc-500 uppercase tracking-wider block mb-1">
-              Conversas Diretas
-            </span>
-            <div className="space-y-1">
-              {/* Personal Self-Chat Room */}
-              <button
-                id="dm-member-self"
-                onClick={() => handleSelectDmUser(currentUser.id)}
-                className={`w-full text-left px-3 py-2 rounded-xl transition-all text-xs flex items-center gap-2.5 border ${
-                  selectedDmUserId === currentUser.id
-                    ? "bg-sky-600/10 text-sky-600 dark:text-sky-400 font-bold border-sky-500/20"
-                    : "text-gray-600 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800/80 border-transparent"
-                }`}
-              >
-                <img
-                  src={currentUser.photoUrl}
-                  alt=""
-                  referrerPolicy="no-referrer"
-                  className="w-6 h-6 rounded-full object-cover shrink-0 border border-black/5 dark:border-white/5"
-                />
-                <div className="truncate flex-1">
-                  <p className="truncate font-semibold">Meu Espaço Pessoal</p>
-                  <p className="text-[10px] opacity-75 truncate">Anotações e rascunhos</p>
-                </div>
-              </button>
-
-              {/* Group Members (excluding self) */}
-              {groupMembers
-                .filter((m) => m.userId !== currentUser.id)
-                .map((member) => {
-                  const isSelected = selectedDmUserId === member.userId;
-                  return (
-                    <button
-                      id={`dm-member-${member.userId}`}
-                      key={member.userId}
-                      onClick={() => handleSelectDmUser(member.userId)}
-                      className={`w-full text-left px-3 py-2 rounded-xl transition-all text-xs flex items-center gap-2.5 border ${
-                        isSelected
-                          ? "bg-sky-600/10 text-sky-600 dark:text-sky-400 font-bold border-sky-500/20"
-                          : "text-gray-600 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800/80 border-transparent"
-                      }`}
-                    >
-                      <img
-                        src={member.photoUrl}
-                        alt=""
-                        referrerPolicy="no-referrer"
-                        className="w-6 h-6 rounded-full object-cover shrink-0 border border-black/5 dark:border-white/5"
-                      />
-                      <div className="truncate flex-1">
-                        <p className="truncate font-semibold">{member.name}</p>
-                        <p className="text-[10px] opacity-75 truncate">{member.role || "Membro"}</p>
-                      </div>
-                    </button>
-                  );
-                })}
-
-              {/* Friends (excluding those already in group members) */}
-              {friends
-                .filter((f) => f.id !== currentUser.id && !groupMembers.some((m) => m.userId === f.id))
-                .map((friend) => {
-                  const isSelected = selectedDmUserId === friend.id;
-                  return (
-                    <button
-                      id={`dm-friend-${friend.id}`}
-                      key={friend.id}
-                      onClick={() => handleSelectDmUser(friend.id)}
-                      className={`w-full text-left px-3 py-2 rounded-xl transition-all text-xs flex items-center gap-2.5 border ${
-                        isSelected
-                          ? "bg-sky-600/10 text-sky-600 dark:text-sky-400 font-bold border-sky-500/20"
-                          : "text-gray-600 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800/80 border-transparent"
-                      }`}
-                    >
-                      <img
-                        src={friend.photoUrl}
-                        alt=""
-                        referrerPolicy="no-referrer"
-                        className="w-6 h-6 rounded-full object-cover shrink-0 border border-black/5 dark:border-white/5"
-                      />
-                      <div className="truncate flex-1">
-                        <p className="truncate font-semibold">{friend.name} (Amigo)</p>
-                        <p className="text-[10px] opacity-75 truncate">{friend.email}</p>
-                      </div>
-                    </button>
-                  );
-                })}
-            </div>
-          </div>
-        </div>
-      </div>
-
+    <div className="flex-1 w-full max-w-full flex min-h-0 bg-white dark:bg-zinc-900 md:rounded-3xl md:border border-gray-200 dark:border-zinc-800 overflow-hidden md:shadow-sm" id="group-chat-module">
       {/* RIGHT PANEL: CHAT SCENE */}
-      <div className={`flex-1 min-w-0 w-full flex flex-col min-h-0 bg-white dark:bg-zinc-900 ${chatMobileView === "chat" ? "flex" : "hidden md:flex"}`}>
+      <div className="flex-1 min-w-0 w-full flex flex-col min-h-0 bg-white dark:bg-zinc-900">
         {/* Chat Scene Header */}
         <div className="px-4 py-3 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between shrink-0 bg-white dark:bg-zinc-900 shadow-xs">
           <div className="flex items-center gap-2 overflow-hidden">
-            {/* Back button for mobile view */}
-            <button
-              type="button"
-              onClick={() => setChatMobileView("list")}
-              className="md:hidden p-2 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200 cursor-pointer shrink-0 transition-colors"
-              title="Voltar para Canais"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-
             {isGroupRoom ? (
               <div className="w-10 h-10 rounded-full bg-sky-500/10 flex items-center justify-center text-sky-500 shrink-0 border border-sky-500/20">
                 <MessageCircle className="w-5 h-5" />

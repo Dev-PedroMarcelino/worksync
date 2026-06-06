@@ -149,6 +149,7 @@ interface AppContextType {
   // Chat DM selection state
   selectedDmUserId: string | null;
   setSelectedDmUserId: (userId: string | null) => void;
+  latestDmMessages: { [friendId: string]: ChatMessage };
 
   // Demo Fallback
   enterDemoMode: () => void;
@@ -186,6 +187,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [allGroupTasks, setAllGroupTasks] = useState<Task[]>([]);
   const [chatMobileView, setChatMobileView] = useState<"list" | "chat">("list");
   const [selectedDmUserId, setSelectedDmUserId] = useState<string | null>(null);
+  const [latestDmMessages, setLatestDmMessages] = useState<{ [friendId: string]: ChatMessage }>({});
 
   const addToast = (title: string, message: string, type: "task" | "chat") => {
     const id = Math.random().toString(36).substring(2, 9);
@@ -701,7 +703,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     if (!currentUser || activeTab !== "groups" || !selectedGroup) {
       setGroupMembers([]);
-      setChatMessages([]);
       setAuditLogs([]);
       if (activeTab !== "personal") {
         setSubgroups([]);
@@ -721,12 +722,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         localStorage.getItem(`demo_group_subgroups_${selectedGroup.id}`) || "[]"
       ) as Subgroup[];
       setSubgroups(subs);
-
-      // Group Messages & DMs
-      const msgs = JSON.parse(
-        localStorage.getItem(`demo_group_messages_${selectedGroup.id}`) || "[]"
-      ) as ChatMessage[];
-      setChatMessages(msgs);
 
       // Audit logs (Visible to all members!)
       const logs = JSON.parse(
@@ -764,20 +759,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         (err) => handleFirestoreError(err, OperationType.LIST, subsPath)
       );
 
-      // Listen to chat messages list
-      const chatPath = `groups/${selectedGroup.id}/messages`;
-      const unsubChat = onSnapshot(
-        collection(db, chatPath),
-        (snap) => {
-          const arr: ChatMessage[] = [];
-          snap.forEach((doc) => arr.push({ ...doc.data(), id: doc.id } as ChatMessage));
-          // Sort by timestamp
-          arr.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-          setChatMessages(arr);
-        },
-        (err) => handleFirestoreError(err, OperationType.LIST, chatPath)
-      );
-
       // Listen to audit logs (Visible to all members!)
       const logsPath = `groups/${selectedGroup.id}/auditLogs`;
       const unsubAuditLogs = onSnapshot(
@@ -809,7 +790,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return () => {
         unsubMembers();
         unsubSubs();
-        unsubChat();
         unsubAuditLogs();
         unsubNotifs();
       };
@@ -976,6 +956,241 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
   }, [tasks, activeTab, currentUser]);
+
+  // Listen to the latest messages in all DM groups for friends list sorting & alerts
+  useEffect(() => {
+    if (!currentUser || friends.length === 0) {
+      setLatestDmMessages({});
+      return;
+    }
+
+    const unsubscribes: (() => void)[] = [];
+
+    friends.forEach((friend) => {
+      const dmGroupId = "dm_" + [currentUser.id, friend.id].sort().join("_");
+      
+      if (isDemoMode) {
+        const checkDm = () => {
+          const msgs = JSON.parse(
+            localStorage.getItem(`demo_group_messages_${dmGroupId}`) || "[]"
+          ) as ChatMessage[];
+          if (msgs.length > 0) {
+            const lastMsg = msgs[msgs.length - 1];
+            setLatestDmMessages((prev) => {
+              const existing = prev[friend.id];
+              if (existing && existing.id === lastMsg.id) return prev;
+              
+              const isNew = !existing || new Date(lastMsg.timestamp).getTime() > new Date(existing.timestamp).getTime();
+              const isFromFriend = lastMsg.senderId === friend.id;
+              const isChatActive = selectedDmUserId === friend.id && activeModule === "chat";
+              
+              if (isNew && isFromFriend && !isChatActive) {
+                playNotificationSound();
+                addToast(
+                  "Nova Mensagem Direta 💬",
+                  `Você recebeu uma mensagem de ${friend.name}: "${lastMsg.text}"`,
+                  "chat"
+                );
+                showNativeNotification("Nova Mensagem Direta 💬", `Você recebeu uma mensagem de ${friend.name}: "${lastMsg.text}"`);
+              }
+              
+              return { ...prev, [friend.id]: lastMsg };
+            });
+          }
+        };
+        checkDm();
+        const interval = setInterval(checkDm, 2000);
+        unsubscribes.push(() => clearInterval(interval));
+      } else {
+        const chatPath = `groups/${dmGroupId}/messages`;
+        const unsub = onSnapshot(
+          collection(db, chatPath),
+          (snap) => {
+            const arr: ChatMessage[] = [];
+            snap.forEach((doc) => arr.push({ ...doc.data(), id: doc.id } as ChatMessage));
+            if (arr.length > 0) {
+              arr.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+              const lastMsg = arr[arr.length - 1];
+              
+              setLatestDmMessages((prev) => {
+                const existing = prev[friend.id];
+                if (existing && existing.id === lastMsg.id) return prev;
+                
+                const isNew = !existing || new Date(lastMsg.timestamp).getTime() > new Date(existing.timestamp).getTime();
+                const isFromFriend = lastMsg.senderId === friend.id;
+                const isChatActive = selectedDmUserId === friend.id && activeModule === "chat";
+                
+                if (isNew && isFromFriend && !isChatActive) {
+                  playNotificationSound();
+                  addToast(
+                    "Nova Mensagem Direta 💬",
+                    `Você recebeu uma mensagem de ${friend.name}: "${lastMsg.text}"`,
+                    "chat"
+                  );
+                  showNativeNotification("Nova Mensagem Direta 💬", `Você recebeu uma mensagem de ${friend.name}: "${lastMsg.text}"`);
+                }
+                
+                return { ...prev, [friend.id]: lastMsg };
+              });
+            }
+          },
+          (err) => console.warn(`Error listening to DM messages for ${friend.name}:`, err)
+        );
+        unsubscribes.push(unsub);
+      }
+    });
+
+    return () => {
+      unsubscribes.forEach((unsub) => unsub());
+    };
+  }, [currentUser, friends, isDemoMode, selectedDmUserId, activeModule]);
+
+  // Check and dynamically initialize private DM groups
+  useEffect(() => {
+    if (!currentUser || !selectedDmUserId) return;
+    const dmGroupId = "dm_" + [currentUser.id, selectedDmUserId].sort().join("_");
+    
+    if (isDemoMode) {
+      const allGroups = JSON.parse(localStorage.getItem("demo_groups") || "[]") as Group[];
+      if (!allGroups.some(g => g.id === dmGroupId)) {
+        const newDmGroup: Group = {
+          id: dmGroupId,
+          name: `DM Chat`,
+          description: `Private DM`,
+          code: `DM`,
+          creatorId: currentUser.id,
+          createdAt: new Date().toISOString()
+        };
+        localStorage.setItem("demo_groups", JSON.stringify([...allGroups, newDmGroup]));
+        
+        const initialMembers = [
+          {
+            userId: currentUser.id,
+            name: currentUser.name,
+            photoUrl: currentUser.photoUrl,
+            role: "Membro",
+            color: PRESET_MEMBER_COLORS[0],
+            joinedAt: new Date().toISOString()
+          },
+          {
+            userId: selectedDmUserId,
+            name: friends.find(f => f.id === selectedDmUserId)?.name || "Amigo",
+            photoUrl: friends.find(f => f.id === selectedDmUserId)?.photoUrl || "",
+            role: "Membro",
+            color: PRESET_MEMBER_COLORS[1],
+            joinedAt: new Date().toISOString()
+          }
+        ];
+        localStorage.setItem(`demo_group_members_${dmGroupId}`, JSON.stringify(initialMembers));
+      }
+    } else {
+      const checkAndCreateDmGroup = async () => {
+        try {
+          const groupRef = doc(db, "groups", dmGroupId);
+          const snap = await getDoc(groupRef);
+          if (!snap.exists()) {
+            const newDmGroup: Group = {
+              id: dmGroupId,
+              name: `DM Chat`,
+              description: `Private DM`,
+              code: `DM`,
+              creatorId: currentUser.id,
+              createdAt: new Date().toISOString()
+            };
+            await setDoc(groupRef, newDmGroup);
+            
+            await setDoc(doc(db, `groups/${dmGroupId}/members`, currentUser.id), {
+              userId: currentUser.id,
+              name: currentUser.name,
+              photoUrl: currentUser.photoUrl,
+              role: "Membro",
+              color: PRESET_MEMBER_COLORS[0],
+              joinedAt: new Date().toISOString()
+            });
+            
+            const recipientFriend = friends.find(f => f.id === selectedDmUserId);
+            await setDoc(doc(db, `groups/${dmGroupId}/members`, selectedDmUserId), {
+              userId: selectedDmUserId,
+              name: recipientFriend?.name || "Amigo",
+              photoUrl: recipientFriend?.photoUrl || "",
+              role: "Membro",
+              color: PRESET_MEMBER_COLORS[1],
+              joinedAt: new Date().toISOString()
+            });
+          }
+        } catch (e) {
+          console.error("Error creating DM group in Firestore", e);
+        }
+      };
+      checkAndCreateDmGroup();
+    }
+  }, [currentUser, selectedDmUserId, isDemoMode, friends]);
+
+  // Listen to chat messages (Group Mural OR DM Chat)
+  useEffect(() => {
+    if (!currentUser) {
+      setChatMessages([]);
+      return;
+    }
+
+    if (selectedDmUserId) {
+      const dmGroupId = "dm_" + [currentUser.id, selectedDmUserId].sort().join("_");
+      
+      if (isDemoMode) {
+        const loadDmMessages = () => {
+          const msgs = JSON.parse(
+            localStorage.getItem(`demo_group_messages_${dmGroupId}`) || "[]"
+          ) as ChatMessage[];
+          msgs.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+          setChatMessages(msgs);
+        };
+        loadDmMessages();
+        const interval = setInterval(loadDmMessages, 1000);
+        return () => clearInterval(interval);
+      } else {
+        const chatPath = `groups/${dmGroupId}/messages`;
+        const unsubChat = onSnapshot(
+          collection(db, chatPath),
+          (snap) => {
+            const arr: ChatMessage[] = [];
+            snap.forEach((doc) => arr.push({ ...doc.data(), id: doc.id } as ChatMessage));
+            arr.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+            setChatMessages(arr);
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, chatPath)
+        );
+        return () => unsubChat();
+      }
+    } else if (activeTab === "groups" && selectedGroup) {
+      if (isDemoMode) {
+        const loadGroupMessages = () => {
+          const msgs = JSON.parse(
+            localStorage.getItem(`demo_group_messages_${selectedGroup.id}`) || "[]"
+          ) as ChatMessage[];
+          msgs.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+          setChatMessages(msgs);
+        };
+        loadGroupMessages();
+        const interval = setInterval(loadGroupMessages, 1000);
+        return () => clearInterval(interval);
+      } else {
+        const chatPath = `groups/${selectedGroup.id}/messages`;
+        const unsubChat = onSnapshot(
+          collection(db, chatPath),
+          (snap) => {
+            const arr: ChatMessage[] = [];
+            snap.forEach((doc) => arr.push({ ...doc.data(), id: doc.id } as ChatMessage));
+            arr.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+            setChatMessages(arr);
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, chatPath)
+        );
+        return () => unsubChat();
+      }
+    } else {
+      setChatMessages([]);
+    }
+  }, [currentUser, selectedDmUserId, selectedGroup, activeTab, isDemoMode]);
 
   // Load selected Subgroup files/items
   useEffect(() => {
@@ -2346,12 +2561,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     dmTo?: string,
     fileData?: { url: string; name: string; type: string }
   ): Promise<void> => {
-    if (!currentUser || !selectedGroup) return;
+    if (!currentUser) return;
+    if (!dmTo && !selectedGroup) return;
+
     const msgId = Math.random().toString(36).substring(2, 9);
+    
+    let targetGroupId = "";
+    if (dmTo) {
+      targetGroupId = "dm_" + [currentUser.id, dmTo].sort().join("_");
+    } else {
+      if (!selectedGroup) return;
+      targetGroupId = selectedGroup.id;
+    }
 
     let myColor = "text-sky-500 bg-sky-500/10 border-sky-500/30";
-    const activeMemberObj = groupMembers.find((m) => m.userId === currentUser.id);
-    if (activeMemberObj) myColor = activeMemberObj.color;
+    if (selectedGroup) {
+      const activeMemberObj = groupMembers.find((m) => m.userId === currentUser.id);
+      if (activeMemberObj) myColor = activeMemberObj.color;
+    }
 
     const newMessage: ChatMessage = {
       id: isDemoMode ? msgId : "",
@@ -2375,27 +2602,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (isDemoMode) {
       newMessage.id = msgId;
-      const key = `demo_group_messages_${selectedGroup.id}`;
+      const key = `demo_group_messages_${targetGroupId}`;
       const currentMsgs = JSON.parse(localStorage.getItem(key) || "[]") as ChatMessage[];
       const nextMsgs = [...currentMsgs, newMessage];
       localStorage.setItem(key, JSON.stringify(nextMsgs));
       setChatMessages(nextMsgs);
+      if (dmTo) {
+        setLatestDmMessages((prev) => ({ ...prev, [dmTo]: newMessage }));
+      }
     } else {
       try {
-        const colRef = collection(db, `groups/${selectedGroup.id}/messages`);
+        const colRef = collection(db, `groups/${targetGroupId}/messages`);
         const res = await addDoc(colRef, newMessage);
         await updateDoc(doc(db, colRef.path, res.id), { id: res.id });
       } catch (e) {
-        handleFirestoreError(e, OperationType.CREATE, `groups/${selectedGroup.id}/messages`);
+        handleFirestoreError(e, OperationType.CREATE, `groups/${targetGroupId}/messages`);
       }
     }
   };
 
   const editChatMessage = async (messageId: string, newText: string): Promise<void> => {
-    if (!selectedGroup) return;
+    if (!currentUser) return;
+    let targetGroupId = "";
+    if (selectedDmUserId) {
+      targetGroupId = "dm_" + [currentUser.id, selectedDmUserId].sort().join("_");
+    } else {
+      if (!selectedGroup) return;
+      targetGroupId = selectedGroup.id;
+    }
 
     if (isDemoMode) {
-      const key = `demo_group_messages_${selectedGroup.id}`;
+      const key = `demo_group_messages_${targetGroupId}`;
       const currentMsgs = JSON.parse(localStorage.getItem(key) || "[]") as ChatMessage[];
       const nextMsgs = currentMsgs.map((m) =>
         m.id === messageId ? { ...m, text: newText, editedAt: new Date().toISOString() } : m
@@ -2404,32 +2641,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setChatMessages(nextMsgs);
     } else {
       try {
-        const msgRef = doc(db, `groups/${selectedGroup.id}/messages`, messageId);
+        const msgRef = doc(db, `groups/${targetGroupId}/messages`, messageId);
         await updateDoc(msgRef, {
           text: newText,
           editedAt: new Date().toISOString(),
         });
       } catch (e) {
-        handleFirestoreError(e, OperationType.UPDATE, `groups/${selectedGroup.id}/messages/${messageId}`);
+        handleFirestoreError(e, OperationType.UPDATE, `groups/${targetGroupId}/messages/${messageId}`);
       }
     }
   };
 
   const deleteChatMessage = async (messageId: string): Promise<void> => {
-    if (!selectedGroup) return;
+    if (!currentUser) return;
+    let targetGroupId = "";
+    if (selectedDmUserId) {
+      targetGroupId = "dm_" + [currentUser.id, selectedDmUserId].sort().join("_");
+    } else {
+      if (!selectedGroup) return;
+      targetGroupId = selectedGroup.id;
+    }
 
     if (isDemoMode) {
-      const key = `demo_group_messages_${selectedGroup.id}`;
+      const key = `demo_group_messages_${targetGroupId}`;
       const currentMsgs = JSON.parse(localStorage.getItem(key) || "[]") as ChatMessage[];
       const nextMsgs = currentMsgs.filter((m) => m.id !== messageId);
       localStorage.setItem(key, JSON.stringify(nextMsgs));
       setChatMessages(nextMsgs);
     } else {
       try {
-        const msgRef = doc(db, `groups/${selectedGroup.id}/messages`, messageId);
+        const msgRef = doc(db, `groups/${targetGroupId}/messages`, messageId);
         await deleteDoc(msgRef);
       } catch (e) {
-        handleFirestoreError(e, OperationType.DELETE, `groups/${selectedGroup.id}/messages/${messageId}`);
+        handleFirestoreError(e, OperationType.DELETE, `groups/${targetGroupId}/messages/${messageId}`);
       }
     }
   };
@@ -2818,6 +3062,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setChatMobileView,
         selectedDmUserId,
         setSelectedDmUserId,
+        latestDmMessages,
 
         signUp,
         signIn,

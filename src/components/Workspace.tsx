@@ -259,7 +259,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
   return (
     <div className="flex-1 h-[100dvh] flex flex-col bg-gray-50 dark:bg-zinc-950 overflow-hidden font-sans relative transition-colors duration-200">
       {/* HEADER BAR */}
-      <header className={`px-4 sm:px-6 py-3 sm:py-4 bg-white dark:bg-zinc-900 border-b border-gray-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-4 select-none shrink-0 ${activeModule === "chat" && chatMobileView === "chat" ? "hidden md:flex" : "flex"}`} id="workspace-header">
+      <header className="px-4 sm:px-6 py-3 sm:py-4 bg-white dark:bg-zinc-900 border-b border-gray-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-4 select-none shrink-0" id="workspace-header">
         <div className="flex items-center gap-2">
           {/* Mobile open-menu drawer button */}
           {((isPersonal && !selectedSubgroup) || (!isPersonal && !selectedGroup)) && (
@@ -978,7 +978,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white dark:bg-zinc-900 rounded-3xl p-6 w-full max-w-sm border border-gray-200 dark:border-zinc-800 shadow-2xl relative"
+              className="bg-white dark:bg-zinc-900 rounded-3xl p-6 w-full max-w-sm border border-gray-200 dark:border-zinc-800 shadow-2xl relative max-h-[90dvh] overflow-y-auto scrollbar-thin"
             >
               <button
                 id="close-profile-modal-btn"
