@@ -32,7 +32,8 @@ import {
   LogOut,
   Upload,
   Image,
-  Settings
+  Settings,
+  Download
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { TaskBoard } from "./TaskBoard";
@@ -81,6 +82,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
     updateGroup,
     deleteGroup,
     deleteSubgroup,
+    isSidebarCollapsed,
+    setIsSidebarCollapsed,
+    deferredPrompt,
+    promptInstall,
+    requestNotificationPermission,
   } = useApp();
   const [showManagePermissions, setShowManagePermissions] = useState(false);
   const [showSubgroupMembers, setShowSubgroupMembers] = useState(false);
@@ -496,13 +502,21 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
               <CheckSquare className="w-4 h-4" />
               Área Pessoal
             </button>
-            <button
-              onClick={onOpenMobileSidebar}
-              className="md:hidden py-2 px-4 bg-zinc-200 dark:bg-zinc-850 hover:bg-zinc-300 dark:hover:bg-zinc-800 text-zinc-750 dark:text-zinc-250 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
-            >
-              <Menu className="w-4 h-4" />
-              Menu
-            </button>
+            {(isSidebarCollapsed || window.innerWidth < 768) && (
+              <button
+                onClick={() => {
+                  if (window.innerWidth < 768) {
+                    onOpenMobileSidebar();
+                  } else {
+                    setIsSidebarCollapsed(false);
+                  }
+                }}
+                className="py-2 px-4 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer font-semibold"
+              >
+                <Menu className="w-4 h-4" />
+                Menu
+              </button>
+            )}
           </div>
         </div>
 
@@ -1085,13 +1099,19 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
       {/* HEADER BAR */}
       <header className="px-4 sm:px-6 py-3 sm:py-4 bg-white dark:bg-zinc-900 border-b border-gray-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-4 select-none shrink-0" id="workspace-header">
         <div className="flex items-center gap-2">
-          {/* Mobile open-menu drawer button */}
-          {((isPersonal && !selectedSubgroup) || (!isPersonal && !selectedGroup)) && (
+          {/* Sidebar Toggle Button for all screen sizes */}
+          {(isSidebarCollapsed || window.innerWidth < 768) && (
             <button
               id="workspace-menu-toggle-btn"
-              onClick={onOpenMobileSidebar}
-              className="md:hidden p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200 cursor-pointer"
-              title="Abrir Menu"
+              onClick={() => {
+                if (window.innerWidth < 768) {
+                  onOpenMobileSidebar();
+                } else {
+                  setIsSidebarCollapsed(false);
+                }
+              }}
+              className="p-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 dark:bg-zinc-800 dark:hover:bg-zinc-750 border border-gray-200 dark:border-zinc-750 text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200 cursor-pointer flex items-center justify-center mr-1"
+              title="Expandir Menu"
             >
               <Menu className="w-5 h-5" />
             </button>
@@ -1249,6 +1269,24 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
                     </div>
 
                     <div className="flex-1 overflow-y-auto divide-y divide-gray-100 dark:divide-zinc-800/80">
+                      {typeof window !== "undefined" && "Notification" in window && Notification.permission !== "granted" && (
+                        <div className="p-3 bg-sky-500/10 border-b border-sky-500/20 text-[10px] text-sky-600 dark:text-sky-455 flex flex-col gap-2 shrink-0">
+                          <p className="font-semibold leading-normal">Ative as notificações do sistema para receber avisos sobre novas tarefas e mensagens!</p>
+                          <button
+                            onClick={async () => {
+                              const granted = await requestNotificationPermission();
+                              if (granted) {
+                                alert("Notificações do sistema ativadas!");
+                              } else {
+                                alert("Por favor, ative as notificações nas configurações do seu navegador.");
+                              }
+                            }}
+                            className="py-1 px-2.5 bg-sky-600 hover:bg-sky-505 text-white rounded-md font-bold self-start transition-all cursor-pointer shadow-sm hover:shadow"
+                          >
+                            Ativar Notificações
+                          </button>
+                        </div>
+                      )}
                       {/* Section: Friend requests */}
                       {pendingRequests.length > 0 && (
                         <div className="p-1">
@@ -1875,6 +1913,131 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
           </div>
         )}
       </AnimatePresence>
+      
+      {/* PWA Mobile Install Banner */}
+      <InstallPWABanner />
     </div>
+  );
+};
+
+// PWA Mobile Install Banner component
+const InstallPWABanner: React.FC = () => {
+  const { deferredPrompt, promptInstall, requestNotificationPermission } = useApp();
+  const [showBanner, setShowBanner] = useState(false);
+  const [showiOSInstructions, setShowiOSInstructions] = useState(false);
+
+  useEffect(() => {
+    // Check if on mobile device (width < 768 or userAgent contains mobile/iphone/android)
+    const isMobile = window.innerWidth < 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    
+    // Check if not already running in standalone PWA mode
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
+    
+    // Check if user dismissed the prompt previously
+    const isDismissed = localStorage.getItem("dismiss_install_prompt_v1") === "true";
+
+    if (isMobile && !isStandalone && !isDismissed) {
+      setShowBanner(true);
+    }
+  }, []);
+
+  const handleDismiss = () => {
+    localStorage.setItem("dismiss_install_prompt_v1", "true");
+    setShowBanner(false);
+  };
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      // Chrome / Android native prompt
+      await promptInstall();
+      handleDismiss();
+    } else {
+      // iOS / other browsers - show instructions dialog
+      setShowiOSInstructions(true);
+    }
+  };
+
+  if (!showBanner) return null;
+
+  return (
+    <>
+      <div className="fixed bottom-4 left-4 right-4 z-[999] p-4 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border border-gray-200/50 dark:border-zinc-800/50 rounded-2xl shadow-xl flex items-center justify-between gap-3 animate-slide-up">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-cyan-500 flex items-center justify-center shrink-0 border border-white/20 shadow-md">
+            <img src="/logo.svg" alt="worksync logo" className="w-6 h-6 object-contain" />
+          </div>
+          <div className="min-w-0">
+            <h4 className="text-xs font-bold text-gray-900 dark:text-zinc-50 leading-tight">Instalar worksync</h4>
+            <p className="text-[10px] text-gray-500 dark:text-zinc-400 mt-0.5 leading-normal">
+              Baixe como app para acesso rápido e notificações nativas!
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={handleInstallClick}
+            className="py-1.5 px-3 bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-bold rounded-lg transition-all shadow-sm cursor-pointer"
+          >
+            Baixar
+          </button>
+          <button
+            onClick={handleDismiss}
+            className="p-1.5 rounded-lg hover:bg-gray-150 dark:hover:bg-zinc-800 text-gray-400 hover:text-gray-600 transition-all cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {showiOSInstructions && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[1000] p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-sm bg-white dark:bg-zinc-900 border border-gray-250 dark:border-zinc-850 rounded-2xl shadow-2xl p-5 text-gray-900 dark:text-zinc-100 font-sans"
+            >
+              <div className="flex justify-between items-start mb-3">
+                <h3 className="text-sm font-extrabold flex items-center gap-2">
+                  <Download className="w-4 h-4 text-sky-500" />
+                  Instalar no iPhone/iPad
+                </h3>
+                <button
+                  onClick={() => setShowiOSInstructions(false)}
+                  className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-400 transition-all cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <p className="text-xs text-gray-600 dark:text-zinc-355 leading-relaxed mb-4">
+                Siga os passos abaixo para adicionar o <strong>worksync</strong> à sua tela de início:
+              </p>
+              <ol className="text-xs text-gray-700 dark:text-zinc-300 space-y-2.5 list-decimal pl-4 mb-4 leading-normal">
+                <li>Abra esta página no navegador <strong>Safari</strong> do seu celular.</li>
+                <li>Toque no botão de <strong>Compartilhar</strong> (ícone de um quadrado com uma seta para cima <span className="inline-block px-1 border rounded text-[10px]">↑</span> na barra inferior).</li>
+                <li>Role para baixo e selecione <strong>Adicionar à Tela de Início</strong>.</li>
+                <li>Toque em <strong>Adicionar</strong> no canto superior direito do Safari.</li>
+              </ol>
+              <div className="bg-sky-500/10 border border-sky-500/20 rounded-xl p-3 text-[10px] text-sky-600 dark:text-sky-400 leading-normal flex items-start gap-2 mb-4">
+                <span>💡</span>
+                <span><strong>Atenção:</strong> No iOS, as notificações do sistema só funcionarão após adicionar o aplicativo à sua Tela de Início e abri-lo por lá!</span>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  onClick={() => {
+                    setShowiOSInstructions(false);
+                    handleDismiss();
+                  }}
+                  className="py-2 px-4 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer"
+                >
+                  Entendi
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };

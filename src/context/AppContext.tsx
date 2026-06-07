@@ -156,6 +156,17 @@ interface AppContextType {
   setSelectedDmUserId: (userId: string | null) => void;
   latestDmMessages: { [friendId: string]: ChatMessage };
 
+  // Sidebar retraction
+  isSidebarCollapsed: boolean;
+  setIsSidebarCollapsed: (collapsed: boolean) => void;
+
+  // PWA Install
+  deferredPrompt: any;
+  promptInstall: () => Promise<void>;
+
+  // Notification Perms
+  requestNotificationPermission: () => Promise<boolean>;
+
   // Demo Fallback
   enterDemoMode: () => void;
 }
@@ -203,6 +214,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedDmUserId, setSelectedDmUserId] = useState<string | null>(null);
   const [latestDmMessages, setLatestDmMessages] = useState<{ [friendId: string]: ChatMessage }>({});
 
+  // Sidebar retraction state
+  const [isSidebarCollapsed, setIsSidebarCollapsedState] = useState<boolean>(() => {
+    return localStorage.getItem("sidebar_collapsed") === "true";
+  });
+
+  const setIsSidebarCollapsed = (collapsed: boolean) => {
+    setIsSidebarCollapsedState(collapsed);
+    localStorage.setItem("sidebar_collapsed", String(collapsed));
+  };
+
+  // PWA Install state & effect
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const promptInstall = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      console.log(`User response to PWA install: ${outcome}`);
+      setDeferredPrompt(null);
+    }
+  };
+
+  // Request Notification permission interactively
+  const requestNotificationPermission = async () => {
+    if ("Notification" in window) {
+      const permission = await Notification.requestPermission();
+      return permission === "granted";
+    }
+    return false;
+  };
 
   const addToast = (title: string, message: string, type: "task" | "chat") => {
     const id = Math.random().toString(36).substring(2, 9);
@@ -3308,6 +3360,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         toasts,
         removeToast,
+        isSidebarCollapsed,
+        setIsSidebarCollapsed,
+        deferredPrompt,
+        promptInstall,
+        requestNotificationPermission,
         enterDemoMode,
       }}
     >

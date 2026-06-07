@@ -55,7 +55,7 @@ function ToastContainer() {
 }
 
 function MainLayout() {
-  const { currentUser, isLoading } = useApp();
+  const { currentUser, isLoading, isSidebarCollapsed } = useApp();
   const [showProfile, setShowProfile] = useState(false);
   const [profileTab, setProfileTab] = useState<"profile" | "friends">("profile");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -85,8 +85,10 @@ function MainLayout() {
   return (
     <div className="flex h-[100dvh] w-screen overflow-hidden bg-white dark:bg-zinc-950 text-gray-900 dark:text-zinc-50 font-sans transition-colors duration-200 relative">
       {/* Desktop Sidebar Layout */}
-      <div className="hidden md:flex w-80 h-full shrink-0 border-r border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
-        <Sidebar onOpenProfile={openProfileModal} />
+      <div className={`hidden md:flex h-full shrink-0 border-r border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? "w-0 border-r-0" : "w-80"}`}>
+        <div className="w-80 h-full flex flex-col">
+          <Sidebar onOpenProfile={openProfileModal} />
+        </div>
       </div>
 
       {/* Mobile Drawer (AnimatePresence) */}

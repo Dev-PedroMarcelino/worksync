@@ -16,6 +16,7 @@ import {
   Check,
   Mail,
   ChevronRight,
+  ChevronLeft,
   FolderPlus,
   Trash2,
   Lock,
@@ -65,6 +66,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenProfile, isMobile, onClo
     setActiveModule,
     setChatMobileView,
     setSelectedDmUserId,
+    isSidebarCollapsed,
+    setIsSidebarCollapsed,
   } = useApp();
 
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
@@ -187,13 +190,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenProfile, isMobile, onClo
             worksync
           </h1>
         </div>
-        {isMobile && (
+        {isMobile ? (
           <button
             onClick={onCloseMobile}
             className="p-1 rounded-lg text-gray-400 hover:text-gray-655 dark:hover:text-zinc-200 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-all cursor-pointer"
             title="Fechar menu"
           >
             <X className="w-5 h-5" />
+          </button>
+        ) : (
+          <button
+            onClick={() => setIsSidebarCollapsed(true)}
+            className="p-1 rounded-lg text-gray-400 hover:text-gray-655 dark:hover:text-zinc-200 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-all cursor-pointer flex items-center justify-center"
+            title="Recolher menu"
+          >
+            <ChevronLeft className="w-4.5 h-4.5" />
           </button>
         )}
       </div>

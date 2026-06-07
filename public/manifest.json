@@ -1,0 +1,17 @@
+{
+  "name": "worksync",
+  "short_name": "worksync",
+  "description": "Organização de Tarefas e Colaboração em Equipe",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
