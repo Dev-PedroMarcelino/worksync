@@ -182,9 +182,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenProfile, isMobile, onClo
       {/* Brand logo header */}
       <div className="p-4 pb-2 border-b border-gray-100 dark:border-zinc-855 bg-gray-50/20 dark:bg-zinc-950/20 flex items-center justify-between">
         <div className="flex items-center gap-2 select-none">
-          <img src="/logo.svg" alt="TaskSync.io Logo" className="w-6 h-6 object-contain" />
+          <img src="/logo.svg" alt="worksync Logo" className="w-6 h-6 object-contain" />
           <h1 className="text-xl font-extrabold bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent tracking-tight">
-            TaskSync.io
+            worksync
           </h1>
         </div>
         {isMobile && (

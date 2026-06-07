@@ -41,10 +41,10 @@ export const AuthScreen: React.FC = () => {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-3">
-            <img src="/logo.svg" alt="TaskSync.io Logo" className="w-16 h-16 object-contain" />
+            <img src="/logo.svg" alt="worksync Logo" className="w-16 h-16 object-contain" />
           </div>
           <h1 id="auth-title" className="text-2xl font-bold font-sans tracking-tight text-gray-900 dark:text-zinc-55">
-            Acessar o TaskSync.io
+            Acessar o worksync
           </h1>
           <p className="text-sm text-gray-500 dark:text-zinc-400 mt-1">
             Entre para gerenciar seus grupos, quadros, notas e tarefas colaborativas.

@@ -203,6 +203,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedDmUserId, setSelectedDmUserId] = useState<string | null>(null);
   const [latestDmMessages, setLatestDmMessages] = useState<{ [friendId: string]: ChatMessage }>({});
 
+
   const addToast = (title: string, message: string, type: "task" | "chat") => {
     const id = Math.random().toString(36).substring(2, 9);
     setToasts((prev) => [...prev, { id, title, message, type }]);
@@ -248,7 +249,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         new Notification(title, {
           body,
-          icon: "https://api.dicebear.com/7.x/bottts/svg?seed=tasksync",
+          icon: "https://api.dicebear.com/7.x/bottts/svg?seed=worksync",
         });
       } catch (err) {
         console.warn("Native Notification failed to display:", err);
@@ -337,6 +338,71 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [isDemoMode, setIsDemoMode] = useState(initialIsDemoMode);
   const isFirebaseCloud = !isDemoMode;
+
+  // One-time message cleanup to delete all existing chat messages in the system
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const runCleanup = async () => {
+      if (localStorage.getItem("has_cleared_messages_v1")) return;
+
+      console.log("Starting one-time message cleanup...");
+
+      // 1. Clear LocalStorage demo messages
+      try {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith("demo_group_messages_")) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach((key) => localStorage.removeItem(key));
+        console.log("Cleared demo messages from localStorage.");
+      } catch (err) {
+        console.error("Failed to clear localStorage messages:", err);
+      }
+
+      // 2. Clear Firestore messages (only in cloud mode)
+      if (!isDemoMode && db) {
+        try {
+          const { getDocs, collection, writeBatch, doc } = await import("firebase/firestore");
+
+          // Clear collaborative group messages
+          for (const group of groups) {
+            const chatPath = `groups/${group.id}/messages`;
+            const snap = await getDocs(collection(db, chatPath));
+            if (!snap.empty) {
+              const batch = writeBatch(db);
+              snap.docs.forEach((d) => batch.delete(doc(db, chatPath, d.id)));
+              await batch.commit();
+              console.log(`Cleared messages for group: ${group.name}`);
+            }
+          }
+
+          // Clear DM messages for friends
+          for (const friend of friends) {
+            const dmGroupId = "dm_" + [currentUser.id, friend.id].sort().join("_");
+            const chatPath = `groups/${dmGroupId}/messages`;
+            const snap = await getDocs(collection(db, chatPath));
+            if (!snap.empty) {
+              const batch = writeBatch(db);
+              snap.docs.forEach((d) => batch.delete(doc(db, chatPath, d.id)));
+              await batch.commit();
+              console.log(`Cleared DM messages for friend: ${friend.name}`);
+            }
+          }
+        } catch (err) {
+          console.error("Failed to clear Firestore messages:", err);
+        }
+      }
+
+      localStorage.setItem("has_cleared_messages_v1", "true");
+      console.log("One-time message cleanup completed.");
+    };
+
+    runCleanup();
+  }, [currentUser, groups, friends, isDemoMode]);
 
   const setActiveTab = (tab: "personal" | "groups") => {
     setActiveTabState(tab);
@@ -3145,7 +3211,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const defaultDemoUser: UserProfile = {
         id: "demo_user_default",
         name: "Desenvolvedor Teste",
-        email: "demo@tasksync.io",
+        email: "demo@worksync.io",
         photoUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=demo",
         role: "Desenvolvedor",
         theme: "dark",
