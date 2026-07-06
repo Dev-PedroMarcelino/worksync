@@ -77,6 +77,17 @@ service cloud.firestore {
       );
     }
 
+    // Direct-message pseudo-groups have a deterministic id of the form
+    // "dm_<uidA>_<uidB>" (the two ids sorted). Since these groups are created
+    // lazily and their membership docs are written asynchronously, access is
+    // granted directly to the two participants encoded in the id, independent
+    // of the members subcollection.
+    function isDmParticipant(groupId) {
+      return isSignedIn()
+        && groupId.matches('^dm_.*')
+        && groupId.split('_').hasAny([request.auth.uid]);
+    }
+
     match /groups/{groupId} {
       allow get: if isSignedIn();
       allow list: if isSignedIn();
@@ -94,7 +105,7 @@ service cloud.firestore {
       }
 
       match /messages/{messageId} {
-        allow read, write: if isGroupMember(groupId);
+        allow read, write: if isGroupMember(groupId) || isDmParticipant(groupId);
       }
 
       function isSubgroupCreator(subgroupId) {

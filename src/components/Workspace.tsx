@@ -476,6 +476,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
         setActiveModule("chat");
       }
     }
+    // Inside a channel the group-level chat is not available, so leave the chat
+    // module (its header tab is hidden there) and land on tasks.
+    if (!isPersonal && selectedSubgroup && activeModule === "chat") {
+      setActiveModule("tasks");
+    }
   }, [isPersonal, selectedGroup, selectedSubgroup, activeModule, setActiveModule]);
 
   const handleTogglePermission = async (targetUserId: string, currentVal: boolean) => {
@@ -1224,7 +1229,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
               />
             </>
           )}
-          {!isPersonal && (
+          {!isPersonal && !selectedSubgroup && (
             <ModuleTab
               active={activeModule === "chat"}
               label="Chat"

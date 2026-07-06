@@ -1757,7 +1757,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const initialMember: GroupMember = {
       userId: currentUser.id,
       name: currentUser.name,
-      photoUrl: currentUser.photoUrl,
+      photoUrl: currentUser.photoUrl || "",
       role: currentUser.role || "Criador",
       color: PRESET_MEMBER_COLORS[0],
       joinedAt: new Date().toISOString(),
@@ -1781,6 +1781,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const creatorMemberRef = doc(db, `groups/${groupRef.id}/members`, currentUser.id);
         await setDoc(creatorMemberRef, initialMember);
 
+        // Optimistically surface the new group in the list right away instead of
+        // waiting for the groups listener to re-fire (which may lag or, under
+        // scoped list rules, not include it immediately).
+        setGroups((prev) => (prev.some((g) => g.id === groupCreated.id) ? prev : [...prev, groupCreated]));
         setSelectedGroup(groupCreated);
         return groupCreated;
       } catch (e) {
