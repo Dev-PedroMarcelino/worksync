@@ -57,15 +57,19 @@ export interface ChecklistItem {
   done: boolean;
 }
 
+export type TaskStatus = "pending" | "in_progress" | "review" | "completed";
+
 export interface Task {
   id: string;
   title: string;
   description: string;
-  status: "pending" | "completed";
+  status: TaskStatus;
   priority: "low" | "medium" | "high";
   dueDate?: string;
   assignedTo?: string; // userId of a group member or "all" (empty/null implies personal/unassigned)
   assignedToName?: string;
+  tags?: string[];
+  order?: number; // manual ordering within a Kanban column
   checklist: ChecklistItem[];
   creatorId: string;
   createdAt: string;
@@ -104,6 +108,8 @@ export interface Notebook {
   title: string;
   content: string; // Plaintext or Markdown
   color: string; // hex or Tailwind color name
+  pinned?: boolean;
+  tags?: string[];
   creatorId: string;
   createdAt: string;
   updatedAt: string;
@@ -123,6 +129,26 @@ export interface ChatMessage {
   fileName?: string;
   fileType?: string;
   pending?: boolean;
+}
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  description?: string;
+  date: string; // YYYY-MM-DD (start day)
+  endDate?: string; // YYYY-MM-DD (optional, for multi-day; defaults to date)
+  startTime?: string; // HH:mm
+  endTime?: string; // HH:mm
+  allDay?: boolean;
+  location?: string;
+  color: string; // hex color used for the dot / block
+  assignedTo?: string; // userId of a group member, "all", or empty
+  assignedToName?: string;
+  taskId?: string; // when the event mirrors/links an existing task
+  creatorId: string;
+  creatorName?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AuditLogEntry {

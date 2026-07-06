@@ -39,6 +39,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { TaskBoard } from "./TaskBoard";
 import { WhiteboardCanvas } from "./WhiteboardCanvas";
 import { NotebooksList } from "./NotebooksList";
+import { CalendarView } from "./CalendarView";
 import { GroupChatModule } from "./GroupChatModule";
 import { GroupMember } from "../types";
 import { useConfirm } from "../context/ConfirmContext";
@@ -414,9 +415,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
   const todayStr = getTodayStr();
   const tomorrowStr = getTomorrowStr();
 
-  // Filter tasks: due today and pending
+  // Filter tasks: due today and not yet completed
   const activeDueTasks = tasks.filter(
-    (t) => t.dueDate === todayStr && t.status === "pending" && !dismissedTaskIds.includes(t.id)
+    (t) => t.dueDate === todayStr && t.status !== "completed" && !dismissedTaskIds.includes(t.id)
   );
 
   // Pending Friend Requests:
@@ -432,7 +433,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
   // Group tasks deadlines ending today/tomorrow (across all subgroups)
   const groupTasksAlerts = allGroupTasks.filter(
     (t) =>
-      t.status === "pending" &&
+      t.status !== "completed" &&
       (t.dueDate === todayStr || t.dueDate === tomorrowStr) &&
       !dismissedTaskIds.includes(t.id)
   );
@@ -472,9 +473,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
   // Force active module to chat if no subgroup is selected in group workspace mode
   useEffect(() => {
     if (!isPersonal && selectedGroup && !selectedSubgroup) {
-      if (activeModule === "tasks" || activeModule === "whiteboard" || activeModule === "notes") {
+      if (activeModule === "tasks" || activeModule === "whiteboard" || activeModule === "notes" || activeModule === "calendar") {
         setActiveModule("chat");
       }
+    }
+    // Inside a channel the group-level chat is not available, so leave the chat
+    // module (its header tab is hidden there) and land on tasks.
+    if (!isPersonal && selectedSubgroup && activeModule === "chat") {
+      setActiveModule("tasks");
     }
   }, [isPersonal, selectedGroup, selectedSubgroup, activeModule, setActiveModule]);
 
@@ -1222,9 +1228,15 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
                 icon={<BookOpen className="w-4 h-4" />}
                 onClick={() => setActiveModule("notes")}
               />
+              <ModuleTab
+                active={activeModule === "calendar"}
+                label="Calendário"
+                icon={<Calendar className="w-4 h-4" />}
+                onClick={() => setActiveModule("calendar")}
+              />
             </>
           )}
-          {!isPersonal && (
+          {!isPersonal && !selectedSubgroup && (
             <ModuleTab
               active={activeModule === "chat"}
               label="Chat"
@@ -1727,7 +1739,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
         )}
 
         <div className="flex-1 min-h-0 w-full max-w-full relative flex flex-col overflow-hidden">
-          {!isPersonal && !selectedSubgroup && (activeModule === "tasks" || activeModule === "whiteboard" || activeModule === "notes") ? (
+          {!isPersonal && !selectedSubgroup && (activeModule === "tasks" || activeModule === "whiteboard" || activeModule === "notes" || activeModule === "calendar") ? (
             <div className="flex-1 flex items-center justify-center p-8 bg-gray-50/50 dark:bg-zinc-950/20 text-gray-550">
               <motion.div
                 initial={{ opacity: 0, scale: 0.98 }}
@@ -1777,6 +1789,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
               {activeModule === "tasks" && <TaskBoard canEdit={canEditSubgroup} />}
               {activeModule === "whiteboard" && <WhiteboardCanvas canEdit={canEditSubgroup} />}
               {activeModule === "notes" && <NotebooksList canEdit={canEditSubgroup} />}
+              {activeModule === "calendar" && <CalendarView canEdit={canEditSubgroup} />}
               {activeModule === "chat" && (
                 <GroupChatModule
                   onOpenProfile={(member) => setSelectedProfileMember(member)}

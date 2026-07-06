@@ -47,6 +47,9 @@ service cloud.firestore {
     match /users/{userId}/personalNotes/{noteId} {
       allow read, write: if isOwner(userId);
     }
+    match /users/{userId}/personalEvents/{eventId} {
+      allow read, write: if isOwner(userId);
+    }
     match /users/{userId}/personalBoards/{boardId} {
       allow read, write: if isOwner(userId);
     }
@@ -62,6 +65,9 @@ service cloud.firestore {
       match /notebooks/{noteId} {
         allow read, write: if isOwner(userId);
       }
+      match /events/{eventId} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
     // Group-related rules
@@ -75,6 +81,17 @@ service cloud.firestore {
       return isSignedIn() && (
         get(/databases/$(database)/documents/groups/$(groupId)).data.creatorId == request.auth.uid
       );
+    }
+
+    // Direct-message pseudo-groups have a deterministic id of the form
+    // "dm_<uidA>_<uidB>" (the two ids sorted). Since these groups are created
+    // lazily and their membership docs are written asynchronously, access is
+    // granted directly to the two participants encoded in the id, independent
+    // of the members subcollection.
+    function isDmParticipant(groupId) {
+      return isSignedIn()
+        && groupId.matches('^dm_.*')
+        && groupId.split('_').hasAny([request.auth.uid]);
     }
 
     match /groups/{groupId} {
@@ -94,7 +111,7 @@ service cloud.firestore {
       }
 
       match /messages/{messageId} {
-        allow read, write: if isGroupMember(groupId);
+        allow read, write: if isGroupMember(groupId) || isDmParticipant(groupId);
       }
 
       function isSubgroupCreator(subgroupId) {
@@ -133,6 +150,11 @@ service cloud.firestore {
         }
 
         match /notebooks/{noteId} {
+          allow read: if isGroupMember(groupId);
+          allow write: if isGroupMember(groupId) && hasSubgroupPermission(subgroupId);
+        }
+
+        match /events/{eventId} {
           allow read: if isGroupMember(groupId);
           allow write: if isGroupMember(groupId) && hasSubgroupPermission(subgroupId);
         }
