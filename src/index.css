@@ -16,6 +16,72 @@
   --color-zinc-850: rgb(30 41 59 / 0.5); /* slate-800 w/ opacity */
   --color-zinc-900: #1E293B; /* slate-800 (Sidebar bg) */
   --color-zinc-950: #0F172A; /* slate-950 (Elegant Dark Main bg) */
+
+  /*
+   * Intermediate shade tokens.
+   * The codebase references many "in-between" shades (e.g. zinc-505, gray-150,
+   * sky-455) that are not part of Tailwind's default scale, so those utilities
+   * silently produced no style. We define them here, mapped to the nearest
+   * tone, so the intended borders/hovers/text colors actually render.
+   */
+
+  /* zinc (mapped onto the slate palette used above) */
+  --color-zinc-55: #fafcfe;
+  --color-zinc-105: #edf1f6;
+  --color-zinc-150: #e8edf3;
+  --color-zinc-350: #aeb9c9;
+  --color-zinc-355: #acb7c7;
+  --color-zinc-450: #7c8ba1;
+  --color-zinc-505: #5f6f85;
+  --color-zinc-550: #566579;
+  --color-zinc-555: #54637a;
+  --color-zinc-650: #3e4c60;
+  --color-zinc-755: #2c3a4d;
+  --color-zinc-855: #1b2637;
+  --color-zinc-905: #16202f;
+
+  /* gray */
+  --color-gray-55: #fbfcfd;
+  --color-gray-150: #eceef1;
+  --color-gray-205: #e3e5e8;
+  --color-gray-250: #dcdee3;
+  --color-gray-255: #dadce1;
+  --color-gray-350: #b8bdc5;
+  --color-gray-405: #99a0a8;
+  --color-gray-450: #858c96;
+  --color-gray-550: #5c6470;
+  --color-gray-650: #414b58;
+  --color-gray-655: #404a56;
+
+  /* sky */
+  --color-sky-350: #5bc8fa;
+  --color-sky-405: #33bbf7;
+  --color-sky-450: #23b0ef;
+  --color-sky-455: #1eaeef;
+  --color-sky-505: #0ea2e5;
+  --color-sky-655: #0379b3;
+  --color-sky-750: #056f8f;
+  --color-sky-850: #09527a;
+  --color-sky-955: #072b43;
+
+  /* rose */
+  --color-rose-250: #fdbcc2;
+  --color-rose-350: #fc8a9a;
+  --color-rose-450: #f75872;
+  --color-rose-455: #f6546e;
+  --color-rose-505: #f23c5b;
+  --color-rose-750: #af123d;
+
+  /* violet */
+  --color-violet-350: #b6a0fb;
+  --color-violet-750: #64259f;
+
+  /* slate / emerald / amber */
+  --color-slate-350: #b0bccc;
+  --color-emerald-350: #51dda8;
+  --color-emerald-750: #056b51;
+  --color-amber-350: #fbc939;
+  --color-amber-750: #a34a0b;
 }
 
 /* Custom Scrollbar Styling for elegant design feel */
@@ -27,9 +93,52 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: #cbd5e1;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
   background: #475569;
+}
+
+/* Thin scrollbar helper used across scrollable panels */
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+/* Fully hidden scrollbar (used for horizontal tab strips) */
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Entrance animation referenced throughout the UI */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+/* Utility used by a couple of subtle press states */
+.scale-98 {
+  scale: 0.98;
 }

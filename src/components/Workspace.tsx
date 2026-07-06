@@ -47,6 +47,29 @@ interface WorkspaceProps {
   onOpenProfile: (tab: "profile" | "friends") => void;
 }
 
+const ModuleTab: React.FC<{
+  active: boolean;
+  label: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+}> = ({ active, label, icon, onClick }) => (
+  <button
+    type="button"
+    role="tab"
+    aria-selected={active}
+    aria-label={label}
+    onClick={onClick}
+    className={`px-3 py-2 text-xs font-semibold rounded-lg flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${
+      active
+        ? "bg-white dark:bg-zinc-700 text-gray-900 dark:text-white shadow-sm"
+        : "text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+    }`}
+  >
+    {icon}
+    <span className="hidden sm:inline">{label}</span>
+  </button>
+);
+
 export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpenProfile }) => {
   const {
     activeTab,
@@ -1129,94 +1152,78 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
             </button>
           )}
 
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className={`w-3 h-3 rounded-full ${isPersonal ? "bg-emerald-500" : "bg-sky-500"}`} />
-              <h1 id="workspace-title" className="text-base font-bold text-gray-900 dark:text-zinc-50 tracking-tight">
-                {isPersonal ? "Minha Área Pessoal" : selectedSubgroup?.name}
+              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${isPersonal ? "bg-emerald-500" : "bg-sky-500"}`} />
+              <h1 id="workspace-title" className="text-base font-bold text-gray-900 dark:text-zinc-50 tracking-tight truncate">
+                {isPersonal
+                  ? selectedSubgroup
+                    ? selectedSubgroup.name
+                    : "Área Pessoal"
+                  : selectedSubgroup
+                    ? selectedSubgroup.name
+                    : selectedGroup?.name ?? "Grupo"}
               </h1>
             </div>
-            <p className="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">
+            <p className="text-xs text-gray-400 dark:text-zinc-500 mt-0.5 truncate">
               {isPersonal
-                ? "Organização solo de listas, pensamentos e notas do dia."
-                : `Projeto vinculado ao grupo: ${selectedGroup?.name}`}
+                ? selectedSubgroup
+                  ? "Subgrupo pessoal"
+                  : "Organização pessoal de listas, ideias e notas"
+                : selectedSubgroup
+                  ? `Canal · ${selectedGroup?.name}`
+                  : "Mural do grupo"}
             </p>
           </div>
         </div>
 
-        {/* Tab Module Selectors */}
-        <div className="flex flex-row flex-nowrap items-center p-1 bg-gray-100 dark:bg-zinc-800/80 rounded-xl border border-gray-200/50 dark:border-zinc-800/20 text-xs overflow-x-auto max-w-full shrink-0 scrollbar-none">
+        {/* Module selector (icon + label, accessible tablist) */}
+        <div
+          role="tablist"
+          aria-label="Módulos do workspace"
+          className="flex flex-row flex-nowrap items-center gap-0.5 p-1 bg-gray-100 dark:bg-zinc-800/80 rounded-xl border border-gray-200/60 dark:border-zinc-800 overflow-x-auto max-w-full shrink-0 scrollbar-none"
+        >
           {(isPersonal || selectedSubgroup) && (
             <>
-              <button
-                id="module-tasks-btn"
+              <ModuleTab
+                active={activeModule === "tasks"}
+                label="Tarefas"
+                icon={<CheckSquare className="w-4 h-4" />}
                 onClick={() => setActiveModule("tasks")}
-                title="Fluxo de Tarefas"
-                className={`p-2.5 font-semibold rounded-lg flex items-center justify-center transition-all cursor-pointer ${
-                  activeModule === "tasks"
-                    ? "bg-white dark:bg-zinc-700 text-gray-900 dark:text-white shadow-xs"
-                    : "text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200"
-                }`}
-              >
-                <CheckSquare className="w-4 h-4" />
-              </button>
-              <button
-                id="module-whiteboard-btn"
+              />
+              <ModuleTab
+                active={activeModule === "whiteboard"}
+                label="Quadro"
+                icon={<StickyNote className="w-4 h-4" />}
                 onClick={() => setActiveModule("whiteboard")}
-                title="Quadro Branco"
-                className={`p-2.5 font-semibold rounded-lg flex items-center justify-center transition-all cursor-pointer ${
-                  activeModule === "whiteboard"
-                    ? "bg-white dark:bg-zinc-700 text-gray-900 dark:text-white shadow-xs"
-                    : "text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200"
-                }`}
-              >
-                <StickyNote className="w-4 h-4" />
-              </button>
-              <button
-                id="module-notes-btn"
+              />
+              <ModuleTab
+                active={activeModule === "notes"}
+                label="Notas"
+                icon={<BookOpen className="w-4 h-4" />}
                 onClick={() => setActiveModule("notes")}
-                title="Blocos de Notas"
-                className={`p-2.5 font-semibold rounded-lg flex items-center justify-center transition-all cursor-pointer ${
-                  activeModule === "notes"
-                    ? "bg-white dark:bg-zinc-700 text-gray-900 dark:text-white shadow-xs"
-                    : "text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200"
-                }`}
-              >
-                <BookOpen className="w-4 h-4" />
-              </button>
+              />
             </>
           )}
           {!isPersonal && (
-            <button
-              id="module-chat-btn"
+            <ModuleTab
+              active={activeModule === "chat"}
+              label="Chat"
+              icon={<MessageSquare className="w-4 h-4" />}
               onClick={() => {
                 setActiveModule("chat");
                 setChatMobileView("list");
                 setSelectedDmUserId(null);
               }}
-              title="Chat & DMs"
-              className={`p-2.5 font-semibold rounded-lg flex items-center justify-center transition-all cursor-pointer relative ${
-                activeModule === "chat"
-                  ? "bg-white dark:bg-zinc-700 text-gray-900 dark:text-white shadow-xs"
-                  : "text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200"
-              }`}
-            >
-              <MessageSquare className="w-4 h-4" />
-            </button>
+            />
           )}
           {!isPersonal && (
-            <button
-              id="module-audit-btn"
+            <ModuleTab
+              active={activeModule === "audit"}
+              label="Histórico"
+              icon={<ShieldAlert className="w-4 h-4" />}
               onClick={() => setActiveModule("audit")}
-              title="Histórico do Grupo"
-              className={`p-2.5 font-semibold rounded-lg flex items-center justify-center transition-all cursor-pointer relative ${
-                activeModule === "audit"
-                  ? "bg-white dark:bg-zinc-700 text-gray-900 dark:text-white shadow-xs"
-                  : "text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200"
-              }`}
-            >
-              <ShieldAlert className="w-4 h-4 text-sky-500 dark:text-sky-400" />
-            </button>
+            />
           )}
         </div>
 
