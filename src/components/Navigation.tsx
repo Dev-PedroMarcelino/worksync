@@ -145,6 +145,10 @@ export const Navigation: React.FC<NavigationProps> = ({ onOpenProfile, isMobile,
 
   const openDms = () => {
     setBrowseSpace("dms");
+    // Make sure the conversation list is actually visible: on desktop the
+    // contextual panel can be collapsed to width 0, in which case switching
+    // spaces would produce no visible change.
+    if (isSidebarCollapsed) setIsSidebarCollapsed(false);
     if (selectedDmUserId) {
       setActiveModule("chat");
     }
@@ -277,44 +281,51 @@ export const Navigation: React.FC<NavigationProps> = ({ onOpenProfile, isMobile,
 
         <div className="w-8 h-px bg-gray-200 dark:bg-zinc-800 my-1" />
 
-        {/* Group avatars */}
-        <div className="flex-1 w-full flex flex-col items-center gap-1.5 overflow-y-auto scrollbar-none min-h-0">
-          {groups.map((group) => {
-            const active = browseSpace === "groups" && selectedGroup?.id === group.id;
-            return (
-              <button
-                key={group.id}
-                type="button"
-                onClick={() => {
-                  openGroup(group);
-                  closeMobile();
-                }}
-                aria-label={group.name}
-                aria-current={active ? "true" : undefined}
-                title={group.name}
-                className={`group relative w-11 h-11 rounded-2xl overflow-hidden flex items-center justify-center shrink-0 transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${
-                  active
-                    ? "ring-2 ring-sky-500 ring-offset-2 ring-offset-gray-50 dark:ring-offset-zinc-950"
-                    : "hover:rounded-xl"
-                }`}
-              >
-                <span
-                  className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 rounded-r-full bg-sky-500 transition-all ${
-                    active ? "h-6 opacity-100" : "h-0 opacity-0"
+        {/* Middle rail: scrollable group avatars + pinned add/grid controls.
+            The avatar list scrolls, but the add-group control must live OUTSIDE
+            that scroll container: setting overflow-y to auto forces the browser
+            to compute overflow-x as `auto` too, which would clip the popover's
+            `left-14` menu and make the "Adicionar grupo" button look dead. */}
+        <div className="flex-1 w-full flex flex-col items-center gap-1.5 min-h-0">
+          <div className="w-full flex-1 flex flex-col items-center gap-1.5 overflow-y-auto scrollbar-none min-h-0">
+            {groups.map((group) => {
+              const active = browseSpace === "groups" && selectedGroup?.id === group.id;
+              return (
+                <button
+                  key={group.id}
+                  type="button"
+                  onClick={() => {
+                    openGroup(group);
+                    closeMobile();
+                  }}
+                  aria-label={group.name}
+                  aria-current={active ? "true" : undefined}
+                  title={group.name}
+                  className={`group relative w-11 h-11 rounded-2xl overflow-hidden flex items-center justify-center shrink-0 transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${
+                    active
+                      ? "ring-2 ring-sky-500 ring-offset-2 ring-offset-gray-50 dark:ring-offset-zinc-950"
+                      : "hover:rounded-xl"
                   }`}
-                />
-                {group.backgroundImage ? (
-                  <img src={group.backgroundImage} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="w-full h-full bg-gradient-to-br from-indigo-500 to-sky-500 text-white text-xs font-bold flex items-center justify-center">
-                    {group.name.substring(0, 2).toUpperCase()}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+                >
+                  <span
+                    className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 rounded-r-full bg-sky-500 transition-all ${
+                      active ? "h-6 opacity-100" : "h-0 opacity-0"
+                    }`}
+                  />
+                  {group.backgroundImage ? (
+                    <img src={group.backgroundImage} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="w-full h-full bg-gradient-to-br from-indigo-500 to-sky-500 text-white text-xs font-bold flex items-center justify-center">
+                      {group.name.substring(0, 2).toUpperCase()}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
 
-          {/* Add group */}
+          {/* Add group — kept outside the scroll container above so its popover
+              menu is not clipped by the container's horizontal overflow. */}
           <div className="relative shrink-0">
             <button
               type="button"
