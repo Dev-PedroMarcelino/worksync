@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { useApp } from "../context/AppContext";
 import { Send, MessageSquare, Shield, Smile, User2, MessageCircle, Paperclip, Pencil, Trash2, X, FileText, Image as ImageIcon, ArrowLeft } from "lucide-react";
 import { ChatMessage, GroupMember } from "../types";
+import { useConfirm } from "../context/ConfirmContext";
+import { useToast } from "../context/ToastContext";
 
 interface GroupChatModuleProps {
   onOpenProfile: (member: GroupMember) => void;
@@ -26,6 +28,8 @@ export const GroupChatModule: React.FC<GroupChatModuleProps> = ({
     chatMobileView,
     setChatMobileView,
   } = useApp();
+  const confirm = useConfirm();
+  const toast = useToast();
 
   const [inputText, setInputText] = useState("");
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
@@ -92,7 +96,7 @@ export const GroupChatModule: React.FC<GroupChatModuleProps> = ({
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 500 * 1024) {
-        alert("O arquivo anexado deve ter no máximo 500KB.");
+        toast("O arquivo anexado deve ter no máximo 500KB.", "info");
         return;
       }
       const reader = new FileReader();
@@ -126,7 +130,14 @@ export const GroupChatModule: React.FC<GroupChatModuleProps> = ({
   };
 
   const handleDeleteMessage = async (msgId: string) => {
-    if (window.confirm("Deseja realmente excluir esta mensagem?")) {
+    if (
+      await confirm({
+        title: "Excluir mensagem",
+        message: "Deseja realmente excluir esta mensagem?",
+        confirmLabel: "Excluir",
+        tone: "danger",
+      })
+    ) {
       try {
         await deleteChatMessage(msgId);
       } catch (err) {

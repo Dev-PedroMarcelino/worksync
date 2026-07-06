@@ -41,11 +41,36 @@ import { WhiteboardCanvas } from "./WhiteboardCanvas";
 import { NotebooksList } from "./NotebooksList";
 import { GroupChatModule } from "./GroupChatModule";
 import { GroupMember } from "../types";
+import { useConfirm } from "../context/ConfirmContext";
+import { useToast } from "../context/ToastContext";
 
 interface WorkspaceProps {
   onOpenMobileSidebar: () => void;
   onOpenProfile: (tab: "profile" | "friends") => void;
 }
+
+const ModuleTab: React.FC<{
+  active: boolean;
+  label: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+}> = ({ active, label, icon, onClick }) => (
+  <button
+    type="button"
+    role="tab"
+    aria-selected={active}
+    aria-label={label}
+    onClick={onClick}
+    className={`px-3 py-2 text-xs font-semibold rounded-lg flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${
+      active
+        ? "bg-white dark:bg-zinc-700 text-gray-900 dark:text-white shadow-sm"
+        : "text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+    }`}
+  >
+    {icon}
+    <span className="hidden sm:inline">{label}</span>
+  </button>
+);
 
 export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpenProfile }) => {
   const {
@@ -88,6 +113,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
     promptInstall,
     requestNotificationPermission,
   } = useApp();
+  const confirm = useConfirm();
+  const toast = useToast();
   const [showManagePermissions, setShowManagePermissions] = useState(false);
   const [showSubgroupMembers, setShowSubgroupMembers] = useState(false);
   const [subPermissions, setSubPermissions] = useState<{ [uId: string]: boolean }>({});
@@ -199,7 +226,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
     
     // Validate size limit (max 5MB input file, we will compress to < 500KB)
     if (file.size > 5 * 1024 * 1024) {
-      alert("Por favor, selecione um arquivo de imagem menor que 5MB.");
+      toast("Por favor, selecione um arquivo de imagem menor que 5MB.", "info");
       return;
     }
 
@@ -207,7 +234,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
       const base64Compressed = await compressImage(file);
       setManageGroupBg(base64Compressed);
     } catch (err: any) {
-      alert(err.message || "Erro ao processar a imagem.");
+      toast(err.message || "Erro ao processar a imagem.");
     }
   };
 
@@ -246,7 +273,12 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
 
   const handleDeleteSubgroup = async (groupId: string, subgroupId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm("Tem certeza de que deseja excluir este subgrupo? Todas as tarefas e arquivos dele serão perdidos permanentemente.")) return;
+    if (!(await confirm({
+      title: "Excluir subgrupo",
+      message: "Todas as tarefas e arquivos dele serão perdidos permanentemente.",
+      confirmLabel: "Excluir",
+      tone: "danger",
+    }))) return;
     try {
       await deleteSubgroup(subgroupId);
       setLoadedSubgroups((prev) => ({
@@ -254,27 +286,37 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
         [groupId]: (prev[groupId] || []).filter((s) => s.id !== subgroupId)
       }));
     } catch (err) {
-      alert("Erro ao excluir subgrupo.");
+      toast("Erro ao excluir subgrupo.");
     }
   };
 
   const handleDeleteGroup = async (groupId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm("Tem certeza de que deseja excluir este grupo? Esta ação é irreversível e excluirá todos os dados do grupo.")) return;
+    if (!(await confirm({
+      title: "Excluir grupo",
+      message: "Esta ação é irreversível e excluirá todos os dados do grupo.",
+      confirmLabel: "Excluir grupo",
+      tone: "danger",
+    }))) return;
     try {
       await deleteGroup(groupId);
     } catch (err) {
-      alert("Erro ao excluir grupo.");
+      toast("Erro ao excluir grupo.");
     }
   };
 
   const handleLeaveGroup = async (groupId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm("Tem certeza de que deseja sair deste grupo?")) return;
+    if (!(await confirm({
+      title: "Sair do grupo",
+      message: "Tem certeza de que deseja sair deste grupo?",
+      confirmLabel: "Sair",
+      tone: "danger",
+    }))) return;
     try {
       await leaveGroup(groupId);
     } catch (err) {
-      alert("Erro ao sair do grupo.");
+      toast("Erro ao sair do grupo.");
     }
   };
 
@@ -296,7 +338,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
       setShowManageGroupModal(false);
       setManageGroupObj(null);
     } catch (err) {
-      alert("Erro ao atualizar o grupo.");
+      toast("Erro ao atualizar o grupo.");
     } finally {
       setIsManagingGroupLoading(false);
     }
@@ -313,7 +355,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
       setCreateGroupBg("");
       setShowCreateGroupModal(false);
     } catch (err) {
-      alert("Erro ao criar o grupo.");
+      toast("Erro ao criar o grupo.");
     } finally {
       setIsCreatingGroupLoading(false);
     }
@@ -328,7 +370,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
       setJoinCode("");
       setShowJoinGroupModal(false);
     } catch (err: any) {
-      alert(err.message || "Código inválido.");
+      toast(err.message || "Código inválido.");
     } finally {
       setIsJoiningGroupLoading(false);
     }
@@ -444,7 +486,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
       await grantSubgroupPermission(selectedSubgroup.id, targetUserId, nextVal);
       setSubPermissions((prev) => ({ ...prev, [targetUserId]: nextVal }));
     } catch (e) {
-      alert("Erro ao aplicar permissão.");
+      toast("Erro ao aplicar permissão.");
     } finally {
       setIsUpdatingPerm(null);
     }
@@ -808,14 +850,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
                             const file = e.target.files?.[0];
                             if (!file) return;
                             if (file.size > 5 * 1024 * 1024) {
-                              alert("Por favor, selecione um arquivo de imagem menor que 5MB.");
+                              toast("Por favor, selecione um arquivo de imagem menor que 5MB.", "info");
                               return;
                             }
                             try {
                               const base64 = await compressImage(file);
                               setCreateGroupBg(base64);
                             } catch (err: any) {
-                              alert(err.message || "Erro ao processar a imagem.");
+                              toast(err.message || "Erro ao processar a imagem.");
                             }
                           }}
                           className="hidden"
@@ -1129,94 +1171,78 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
             </button>
           )}
 
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className={`w-3 h-3 rounded-full ${isPersonal ? "bg-emerald-500" : "bg-sky-500"}`} />
-              <h1 id="workspace-title" className="text-base font-bold text-gray-900 dark:text-zinc-50 tracking-tight">
-                {isPersonal ? "Minha Área Pessoal" : selectedSubgroup?.name}
+              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${isPersonal ? "bg-emerald-500" : "bg-sky-500"}`} />
+              <h1 id="workspace-title" className="text-base font-bold text-gray-900 dark:text-zinc-50 tracking-tight truncate">
+                {isPersonal
+                  ? selectedSubgroup
+                    ? selectedSubgroup.name
+                    : "Área Pessoal"
+                  : selectedSubgroup
+                    ? selectedSubgroup.name
+                    : selectedGroup?.name ?? "Grupo"}
               </h1>
             </div>
-            <p className="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">
+            <p className="text-xs text-gray-400 dark:text-zinc-500 mt-0.5 truncate">
               {isPersonal
-                ? "Organização solo de listas, pensamentos e notas do dia."
-                : `Projeto vinculado ao grupo: ${selectedGroup?.name}`}
+                ? selectedSubgroup
+                  ? "Subgrupo pessoal"
+                  : "Organização pessoal de listas, ideias e notas"
+                : selectedSubgroup
+                  ? `Canal · ${selectedGroup?.name}`
+                  : "Mural do grupo"}
             </p>
           </div>
         </div>
 
-        {/* Tab Module Selectors */}
-        <div className="flex flex-row flex-nowrap items-center p-1 bg-gray-100 dark:bg-zinc-800/80 rounded-xl border border-gray-200/50 dark:border-zinc-800/20 text-xs overflow-x-auto max-w-full shrink-0 scrollbar-none">
+        {/* Module selector (icon + label, accessible tablist) */}
+        <div
+          role="tablist"
+          aria-label="Módulos do workspace"
+          className="flex flex-row flex-nowrap items-center gap-0.5 p-1 bg-gray-100 dark:bg-zinc-800/80 rounded-xl border border-gray-200/60 dark:border-zinc-800 overflow-x-auto max-w-full shrink-0 scrollbar-none"
+        >
           {(isPersonal || selectedSubgroup) && (
             <>
-              <button
-                id="module-tasks-btn"
+              <ModuleTab
+                active={activeModule === "tasks"}
+                label="Tarefas"
+                icon={<CheckSquare className="w-4 h-4" />}
                 onClick={() => setActiveModule("tasks")}
-                title="Fluxo de Tarefas"
-                className={`p-2.5 font-semibold rounded-lg flex items-center justify-center transition-all cursor-pointer ${
-                  activeModule === "tasks"
-                    ? "bg-white dark:bg-zinc-700 text-gray-900 dark:text-white shadow-xs"
-                    : "text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200"
-                }`}
-              >
-                <CheckSquare className="w-4 h-4" />
-              </button>
-              <button
-                id="module-whiteboard-btn"
+              />
+              <ModuleTab
+                active={activeModule === "whiteboard"}
+                label="Quadro"
+                icon={<StickyNote className="w-4 h-4" />}
                 onClick={() => setActiveModule("whiteboard")}
-                title="Quadro Branco"
-                className={`p-2.5 font-semibold rounded-lg flex items-center justify-center transition-all cursor-pointer ${
-                  activeModule === "whiteboard"
-                    ? "bg-white dark:bg-zinc-700 text-gray-900 dark:text-white shadow-xs"
-                    : "text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200"
-                }`}
-              >
-                <StickyNote className="w-4 h-4" />
-              </button>
-              <button
-                id="module-notes-btn"
+              />
+              <ModuleTab
+                active={activeModule === "notes"}
+                label="Notas"
+                icon={<BookOpen className="w-4 h-4" />}
                 onClick={() => setActiveModule("notes")}
-                title="Blocos de Notas"
-                className={`p-2.5 font-semibold rounded-lg flex items-center justify-center transition-all cursor-pointer ${
-                  activeModule === "notes"
-                    ? "bg-white dark:bg-zinc-700 text-gray-900 dark:text-white shadow-xs"
-                    : "text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200"
-                }`}
-              >
-                <BookOpen className="w-4 h-4" />
-              </button>
+              />
             </>
           )}
           {!isPersonal && (
-            <button
-              id="module-chat-btn"
+            <ModuleTab
+              active={activeModule === "chat"}
+              label="Chat"
+              icon={<MessageSquare className="w-4 h-4" />}
               onClick={() => {
                 setActiveModule("chat");
                 setChatMobileView("list");
                 setSelectedDmUserId(null);
               }}
-              title="Chat & DMs"
-              className={`p-2.5 font-semibold rounded-lg flex items-center justify-center transition-all cursor-pointer relative ${
-                activeModule === "chat"
-                  ? "bg-white dark:bg-zinc-700 text-gray-900 dark:text-white shadow-xs"
-                  : "text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200"
-              }`}
-            >
-              <MessageSquare className="w-4 h-4" />
-            </button>
+            />
           )}
           {!isPersonal && (
-            <button
-              id="module-audit-btn"
+            <ModuleTab
+              active={activeModule === "audit"}
+              label="Histórico"
+              icon={<ShieldAlert className="w-4 h-4" />}
               onClick={() => setActiveModule("audit")}
-              title="Histórico do Grupo"
-              className={`p-2.5 font-semibold rounded-lg flex items-center justify-center transition-all cursor-pointer relative ${
-                activeModule === "audit"
-                  ? "bg-white dark:bg-zinc-700 text-gray-900 dark:text-white shadow-xs"
-                  : "text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200"
-              }`}
-            >
-              <ShieldAlert className="w-4 h-4 text-sky-500 dark:text-sky-400" />
-            </button>
+            />
           )}
         </div>
 
@@ -1276,9 +1302,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
                             onClick={async () => {
                               const granted = await requestNotificationPermission();
                               if (granted) {
-                                alert("Notificações do sistema ativadas!");
+                                toast("Notificações do sistema ativadas!", "success");
                               } else {
-                                alert("Por favor, ative as notificações nas configurações do seu navegador.");
+                                toast("Por favor, ative as notificações nas configurações do seu navegador.", "info");
                               }
                             }}
                             className="py-1 px-2.5 bg-sky-600 hover:bg-sky-505 text-white rounded-md font-bold self-start transition-all cursor-pointer shadow-sm hover:shadow"

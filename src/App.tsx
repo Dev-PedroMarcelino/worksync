@@ -5,8 +5,10 @@
 
 import React, { useState } from "react";
 import { AppProvider, useApp } from "./context/AppContext";
+import { ConfirmProvider } from "./context/ConfirmContext";
+import { ToastProvider } from "./context/ToastContext";
 import { AuthScreen } from "./components/AuthScreen";
-import { Sidebar } from "./components/Sidebar";
+import { Navigation } from "./components/Navigation";
 import { Workspace } from "./components/Workspace";
 import { ProfileModal } from "./components/ProfileModal";
 import { motion, AnimatePresence } from "motion/react";
@@ -84,11 +86,9 @@ function MainLayout() {
 
   return (
     <div className="flex h-[100dvh] w-screen overflow-hidden bg-white dark:bg-zinc-950 text-gray-900 dark:text-zinc-50 font-sans transition-colors duration-200 relative">
-      {/* Desktop Sidebar Layout */}
-      <div className={`hidden md:flex h-full shrink-0 border-r border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? "w-0 border-r-0" : "w-80"}`}>
-        <div className="w-80 h-full flex flex-col">
-          <Sidebar onOpenProfile={openProfileModal} />
-        </div>
+      {/* Desktop Navigation (icon rail + contextual panel) */}
+      <div className="hidden md:flex h-full shrink-0">
+        <Navigation onOpenProfile={openProfileModal} />
       </div>
 
       {/* Mobile Drawer (AnimatePresence) */}
@@ -101,17 +101,17 @@ function MainLayout() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setMobileSidebarOpen(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 md:hidden"
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
             />
-            {/* Slide-out Sidebar Drawer core container */}
+            {/* Slide-out Navigation Drawer */}
             <motion.div
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "tween", duration: 0.25, ease: "easeOut" }}
-              className="fixed inset-y-0 left-0 w-80 max-w-[85vw] h-full z-50 md:hidden shadow-2xl flex flex-col bg-white dark:bg-zinc-900 border-r border-gray-202 dark:border-zinc-800 overflow-hidden outline-none"
+              className="fixed inset-y-0 left-0 w-[21rem] max-w-[90vw] h-full z-50 md:hidden shadow-2xl flex flex-col bg-white dark:bg-zinc-900 overflow-hidden outline-none"
             >
-              <Sidebar
+              <Navigation
                 onOpenProfile={openProfileModal}
                 isMobile={true}
                 onCloseMobile={() => setMobileSidebarOpen(false)}
@@ -133,7 +133,11 @@ function MainLayout() {
 export default function App() {
   return (
     <AppProvider>
-      <MainLayout />
+      <ConfirmProvider>
+        <ToastProvider>
+          <MainLayout />
+        </ToastProvider>
+      </ConfirmProvider>
     </AppProvider>
   );
 }
