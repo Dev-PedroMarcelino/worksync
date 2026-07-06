@@ -9,6 +9,7 @@ import { Plus, Trash2, Edit3, BookOpen, Clock, Calendar, Check, X } from "lucide
 import { motion, AnimatePresence } from "motion/react";
 import { Notebook } from "../types";
 import { useConfirm } from "../context/ConfirmContext";
+import { useToast } from "../context/ToastContext";
 
 interface NotebooksListProps {
   canEdit: boolean;
@@ -31,6 +32,7 @@ export const NotebooksList: React.FC<NotebooksListProps> = ({ canEdit }) => {
     deleteNotebook,
   } = useApp();
   const confirm = useConfirm();
+  const toast = useToast();
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingNote, setEditingNote] = useState<Notebook | null>(null);
@@ -70,7 +72,7 @@ export const NotebooksList: React.FC<NotebooksListProps> = ({ canEdit }) => {
       setNoteTitle("");
       setNoteContent("");
     } catch (err) {
-      alert("Erro ao salvar anotação.");
+      toast("Erro ao salvar anotação.");
     }
   };
 
@@ -88,7 +90,7 @@ export const NotebooksList: React.FC<NotebooksListProps> = ({ canEdit }) => {
       try {
         await deleteNotebook(noteId);
       } catch (err) {
-        alert("Erro ao excluir");
+        toast("Erro ao excluir");
       }
     }
   };

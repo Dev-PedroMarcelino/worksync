@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Task, ChecklistItem } from "../types";
+import { useToast } from "../context/ToastContext";
 
 interface TaskBoardProps {
   canEdit: boolean;
@@ -43,6 +44,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ canEdit }) => {
     updateTaskFields,
     deleteTask,
   } = useApp();
+  const toast = useToast();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "completed">("all");
@@ -109,7 +111,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ canEdit }) => {
       });
       setEditingTask(null);
     } catch (err) {
-      alert("Erro ao salvar alterações da tarefa.");
+      toast("Erro ao salvar alterações da tarefa.");
     }
   };
 
@@ -171,7 +173,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ canEdit }) => {
       setNewChecklistTextList([]);
       setShowAddForm(false);
     } catch (e) {
-      alert("Erro ao salvar tarefa.");
+      toast("Erro ao salvar tarefa.");
     }
   };
 

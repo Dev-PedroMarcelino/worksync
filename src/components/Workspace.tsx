@@ -42,6 +42,7 @@ import { NotebooksList } from "./NotebooksList";
 import { GroupChatModule } from "./GroupChatModule";
 import { GroupMember } from "../types";
 import { useConfirm } from "../context/ConfirmContext";
+import { useToast } from "../context/ToastContext";
 
 interface WorkspaceProps {
   onOpenMobileSidebar: () => void;
@@ -113,6 +114,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
     requestNotificationPermission,
   } = useApp();
   const confirm = useConfirm();
+  const toast = useToast();
   const [showManagePermissions, setShowManagePermissions] = useState(false);
   const [showSubgroupMembers, setShowSubgroupMembers] = useState(false);
   const [subPermissions, setSubPermissions] = useState<{ [uId: string]: boolean }>({});
@@ -224,7 +226,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
     
     // Validate size limit (max 5MB input file, we will compress to < 500KB)
     if (file.size > 5 * 1024 * 1024) {
-      alert("Por favor, selecione um arquivo de imagem menor que 5MB.");
+      toast("Por favor, selecione um arquivo de imagem menor que 5MB.", "info");
       return;
     }
 
@@ -232,7 +234,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
       const base64Compressed = await compressImage(file);
       setManageGroupBg(base64Compressed);
     } catch (err: any) {
-      alert(err.message || "Erro ao processar a imagem.");
+      toast(err.message || "Erro ao processar a imagem.");
     }
   };
 
@@ -284,7 +286,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
         [groupId]: (prev[groupId] || []).filter((s) => s.id !== subgroupId)
       }));
     } catch (err) {
-      alert("Erro ao excluir subgrupo.");
+      toast("Erro ao excluir subgrupo.");
     }
   };
 
@@ -299,7 +301,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
     try {
       await deleteGroup(groupId);
     } catch (err) {
-      alert("Erro ao excluir grupo.");
+      toast("Erro ao excluir grupo.");
     }
   };
 
@@ -314,7 +316,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
     try {
       await leaveGroup(groupId);
     } catch (err) {
-      alert("Erro ao sair do grupo.");
+      toast("Erro ao sair do grupo.");
     }
   };
 
@@ -336,7 +338,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
       setShowManageGroupModal(false);
       setManageGroupObj(null);
     } catch (err) {
-      alert("Erro ao atualizar o grupo.");
+      toast("Erro ao atualizar o grupo.");
     } finally {
       setIsManagingGroupLoading(false);
     }
@@ -353,7 +355,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
       setCreateGroupBg("");
       setShowCreateGroupModal(false);
     } catch (err) {
-      alert("Erro ao criar o grupo.");
+      toast("Erro ao criar o grupo.");
     } finally {
       setIsCreatingGroupLoading(false);
     }
@@ -368,7 +370,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
       setJoinCode("");
       setShowJoinGroupModal(false);
     } catch (err: any) {
-      alert(err.message || "Código inválido.");
+      toast(err.message || "Código inválido.");
     } finally {
       setIsJoiningGroupLoading(false);
     }
@@ -484,7 +486,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
       await grantSubgroupPermission(selectedSubgroup.id, targetUserId, nextVal);
       setSubPermissions((prev) => ({ ...prev, [targetUserId]: nextVal }));
     } catch (e) {
-      alert("Erro ao aplicar permissão.");
+      toast("Erro ao aplicar permissão.");
     } finally {
       setIsUpdatingPerm(null);
     }
@@ -848,14 +850,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
                             const file = e.target.files?.[0];
                             if (!file) return;
                             if (file.size > 5 * 1024 * 1024) {
-                              alert("Por favor, selecione um arquivo de imagem menor que 5MB.");
+                              toast("Por favor, selecione um arquivo de imagem menor que 5MB.", "info");
                               return;
                             }
                             try {
                               const base64 = await compressImage(file);
                               setCreateGroupBg(base64);
                             } catch (err: any) {
-                              alert(err.message || "Erro ao processar a imagem.");
+                              toast(err.message || "Erro ao processar a imagem.");
                             }
                           }}
                           className="hidden"
@@ -1300,9 +1302,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
                             onClick={async () => {
                               const granted = await requestNotificationPermission();
                               if (granted) {
-                                alert("Notificações do sistema ativadas!");
+                                toast("Notificações do sistema ativadas!", "success");
                               } else {
-                                alert("Por favor, ative as notificações nas configurações do seu navegador.");
+                                toast("Por favor, ative as notificações nas configurações do seu navegador.", "info");
                               }
                             }}
                             className="py-1 px-2.5 bg-sky-600 hover:bg-sky-505 text-white rounded-md font-bold self-start transition-all cursor-pointer shadow-sm hover:shadow"

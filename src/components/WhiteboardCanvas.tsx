@@ -8,6 +8,7 @@ import { useApp } from "../context/AppContext";
 import { Plus, Trash2, StickyNote, Info, Move, X, Link } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useConfirm } from "../context/ConfirmContext";
+import { useToast } from "../context/ToastContext";
 
 interface WhiteboardCanvasProps {
   canEdit: boolean;
@@ -35,6 +36,7 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({ canEdit }) =
     deleteWhiteboardBoard,
   } = useApp();
   const confirm = useConfirm();
+  const toast = useToast();
 
   const [noteInput, setNoteInput] = useState("");
   const [selectedColorIdx, setSelectedColorIdx] = useState(0);
@@ -62,7 +64,7 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({ canEdit }) =
       setNoteInput("");
       setShowAddForm(false);
     } catch (err) {
-      alert("Erro ao adicionar post-it");
+      toast("Erro ao adicionar post-it");
     }
   };
 
@@ -74,7 +76,7 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({ canEdit }) =
       setNewBoardName("");
       setIsCreatingBoard(false);
     } catch (err) {
-      alert("Erro ao criar quadro");
+      toast("Erro ao criar quadro");
     }
   };
 

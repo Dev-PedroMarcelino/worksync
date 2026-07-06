@@ -31,6 +31,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { Group } from "../types";
 import { useConfirm } from "../context/ConfirmContext";
+import { useToast } from "../context/ToastContext";
 
 interface NavigationProps {
   onOpenProfile: (tab?: "profile" | "friends") => void;
@@ -72,6 +73,7 @@ export const Navigation: React.FC<NavigationProps> = ({ onOpenProfile, isMobile,
   } = useApp();
 
   const confirm = useConfirm();
+  const toast = useToast();
 
   // Which "space" the contextual panel is showing.
   const [browseSpace, setBrowseSpace] = useState<BrowseSpace>(
@@ -165,7 +167,7 @@ export const Navigation: React.FC<NavigationProps> = ({ onOpenProfile, isMobile,
       setShowCreateGroupModal(false);
       if (g) openGroup(g);
     } catch {
-      alert("Erro ao criar grupo.");
+      toast("Erro ao criar grupo.");
     }
   };
 
@@ -178,7 +180,7 @@ export const Navigation: React.FC<NavigationProps> = ({ onOpenProfile, isMobile,
       setShowJoinGroupModal(false);
       if (g) openGroup(g);
     } catch (err: any) {
-      alert(err.message || "Código inválido.");
+      toast(err.message || "Código inválido.");
     }
   };
 
@@ -193,7 +195,7 @@ export const Navigation: React.FC<NavigationProps> = ({ onOpenProfile, isMobile,
       setNewSubColor("#6366f1");
       setCreatingSubFor(null);
     } catch {
-      alert("Erro ao criar subgrupo.");
+      toast("Erro ao criar subgrupo.");
     }
   };
 

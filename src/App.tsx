@@ -6,6 +6,7 @@
 import React, { useState } from "react";
 import { AppProvider, useApp } from "./context/AppContext";
 import { ConfirmProvider } from "./context/ConfirmContext";
+import { ToastProvider } from "./context/ToastContext";
 import { AuthScreen } from "./components/AuthScreen";
 import { Navigation } from "./components/Navigation";
 import { Workspace } from "./components/Workspace";
@@ -133,7 +134,9 @@ export default function App() {
   return (
     <AppProvider>
       <ConfirmProvider>
-        <MainLayout />
+        <ToastProvider>
+          <MainLayout />
+        </ToastProvider>
       </ConfirmProvider>
     </AppProvider>
   );
