@@ -116,8 +116,9 @@ interface AppContextType {
   deleteTask: (taskId: string) => Promise<void>;
 
   // Actions - Whiteboard
-  addWhiteboardItem: (text: string, color: string, x: number, y: number) => Promise<void>;
+  addWhiteboardItem: (text: string, color: string, x: number, y: number) => Promise<string | void>;
   updateWhiteboardItemPosition: (id: string, x: number, y: number) => Promise<void>;
+  updateWhiteboardItem: (id: string, fields: Partial<WhiteboardItem>) => Promise<void>;
   deleteWhiteboardItem: (id: string) => Promise<void>;
   toggleWhiteboardConnection: (id1: string, id2: string) => Promise<void>;
 
@@ -2671,7 +2672,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // --- WHITEBOARD ACTIONS ---
 
-  const addWhiteboardItem = async (text: string, color: string, x: number, y: number): Promise<void> => {
+  const addWhiteboardItem = async (text: string, color: string, x: number, y: number): Promise<string | void> => {
     if (!currentUser) return;
     const itemId = Math.random().toString(36).substring(2, 9);
 
@@ -2703,13 +2704,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const sWb = JSON.parse(localStorage.getItem(key) || "[]") as WhiteboardItem[];
       localStorage.setItem(key, JSON.stringify([...sWb, newItem]));
       setWhiteboardItems((prev) => [...prev, newItem]);
+      return itemId;
     } else {
       try {
         const colRef = ctx as any;
         const res = await addDoc(colRef, newItem);
         await updateDoc(doc(db, colRef.path, res.id), { id: res.id });
+        return res.id as string;
       } catch (e) {
         handleFirestoreError(e, OperationType.CREATE, "whiteboard");
+      }
+    }
+  };
+
+  const updateWhiteboardItem = async (id: string, fields: Partial<WhiteboardItem>): Promise<void> => {
+    if (!currentUser) return;
+
+    const ctx = getWbContext(id);
+    if (!ctx) return;
+
+    if (isDemoMode) {
+      const key = getWbContext() as string;
+      const updated = whiteboardItems.map((item) => (item.id === id ? { ...item, ...fields } : item));
+      setWhiteboardItems(updated);
+      localStorage.setItem(key, JSON.stringify(updated));
+    } else {
+      try {
+        const docRef = ctx as any;
+        await updateDoc(docRef, { ...fields });
+      } catch (e) {
+        handleFirestoreError(e, OperationType.UPDATE, `whiteboard/${id}`);
       }
     }
   };
@@ -3336,6 +3360,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         addWhiteboardItem,
         updateWhiteboardItemPosition,
+        updateWhiteboardItem,
         deleteWhiteboardItem,
         toggleWhiteboardConnection,
 
