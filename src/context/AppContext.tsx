@@ -19,7 +19,8 @@ import {
   AuditLogEntry,
   Friend,
   FriendRequest,
-  GroupNotification
+  GroupNotification,
+  CalendarEvent
 } from "../types";
 import {
   createUserWithEmailAndPassword,
@@ -63,6 +64,7 @@ interface AppContextType {
   tasks: Task[];
   whiteboardItems: WhiteboardItem[];
   notebooks: Notebook[];
+  calendarEvents: CalendarEvent[];
   chatMessages: ChatMessage[];
   auditLogs: AuditLogEntry[];
   allGroupTasks: Task[];
@@ -80,8 +82,8 @@ interface AppContextType {
   authError: string | null;
 
   // Navigation
-  activeModule: "tasks" | "whiteboard" | "notes" | "chat" | "audit";
-  setActiveModule: (module: "tasks" | "whiteboard" | "notes" | "chat" | "audit") => void;
+  activeModule: "tasks" | "whiteboard" | "notes" | "calendar" | "chat" | "audit";
+  setActiveModule: (module: "tasks" | "whiteboard" | "notes" | "calendar" | "chat" | "audit") => void;
   setActiveTab: (tab: "personal" | "groups") => void;
   setSelectedGroup: (group: Group | null) => void;
   setSelectedSubgroup: (sub: Subgroup | null) => void;
@@ -126,6 +128,11 @@ interface AppContextType {
   createNotebook: (title: string, content: string, color: string) => Promise<void>;
   updateNotebook: (id: string, title: string, content: string, color: string) => Promise<void>;
   deleteNotebook: (id: string) => Promise<void>;
+
+  // Actions - Calendar
+  createCalendarEvent: (data: Partial<CalendarEvent>) => Promise<void>;
+  updateCalendarEvent: (id: string, fields: Partial<CalendarEvent>) => Promise<void>;
+  deleteCalendarEvent: (id: string) => Promise<void>;
 
   // Actions - Group & Direct Chat Messages DMs
   sendChatMessage: (text: string, dmTo?: string, fileData?: { url: string; name: string; type: string }) => Promise<void>;
@@ -204,6 +211,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [whiteboardBoards, setWhiteboardBoards] = useState<WhiteboardBoard[]>([]);
   const [activeBoardId, setActiveBoardId] = useState<string>("default");
   const [notebooks, setNotebooks] = useState<Notebook[]>([]);
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -314,7 +322,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeTab, setActiveTabState] = useState<"personal" | "groups">("personal");
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [selectedSubgroup, setSelectedSubgroupState] = useState<Subgroup | null>(null);
-  const [activeModule, setActiveModule] = useState<"tasks" | "whiteboard" | "notes" | "chat" | "audit">("tasks");
+  const [activeModule, setActiveModule] = useState<"tasks" | "whiteboard" | "notes" | "calendar" | "chat" | "audit">("tasks");
 
   const prevContextRef = useRef<{
     userId: string | null;
@@ -690,6 +698,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
           const localNotes = JSON.parse(localStorage.getItem(`demo_personal_notes_${currentUser.id}_${selectedSubgroup.id}`) || "[]") as Notebook[];
           setNotebooks(localNotes);
+
+          const localEvents = JSON.parse(localStorage.getItem(`demo_personal_events_${currentUser.id}_${selectedSubgroup.id}`) || "[]") as CalendarEvent[];
+          setCalendarEvents(localEvents);
         } else {
           const localTasks = JSON.parse(localStorage.getItem(`demo_personal_tasks_${currentUser.id}`) || "[]") as Task[];
           setTasks(localTasks);
@@ -701,6 +712,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
           const localNotes = JSON.parse(localStorage.getItem(`demo_personal_notes_${currentUser.id}`) || "[]") as Notebook[];
           setNotebooks(localNotes);
+
+          const localEvents = JSON.parse(localStorage.getItem(`demo_personal_events_${currentUser.id}`) || "[]") as CalendarEvent[];
+          setCalendarEvents(localEvents);
         }
       }
     } else {
@@ -740,11 +754,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let tasksPath = `users/${currentUser.id}/personalTasks`;
         let wbPath = `users/${currentUser.id}/personalWhiteboard`;
         let notePath = `users/${currentUser.id}/personalNotes`;
+        let eventsPath = `users/${currentUser.id}/personalEvents`;
 
         if (selectedSubgroup) {
           tasksPath = `users/${currentUser.id}/personalSubgroups/${selectedSubgroup.id}/tasks`;
           wbPath = `users/${currentUser.id}/personalSubgroups/${selectedSubgroup.id}/whiteboard`;
           notePath = `users/${currentUser.id}/personalSubgroups/${selectedSubgroup.id}/notebooks`;
+          eventsPath = `users/${currentUser.id}/personalSubgroups/${selectedSubgroup.id}/events`;
         }
 
         const unsubTasks = onSnapshot(
@@ -777,12 +793,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           (err) => handleFirestoreError(err, OperationType.LIST, notePath)
         );
 
+        const unsubEvents = onSnapshot(
+          collection(db, eventsPath),
+          (snap) => {
+            const arr: CalendarEvent[] = [];
+            snap.forEach((doc) => arr.push({ ...doc.data(), id: doc.id } as CalendarEvent));
+            setCalendarEvents(arr);
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, eventsPath)
+        );
+
         return () => {
           unsubSubs();
           unsubBoards();
           unsubTasks();
           unsubWb();
           unsubNotes();
+          unsubEvents();
         };
       } else {
         // Listening to active groups when signed in
@@ -1361,6 +1388,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setTasks([]);
       setWhiteboardItems([]);
       setNotebooks([]);
+      setCalendarEvents([]);
       return;
     }
 
@@ -1376,6 +1404,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const localNotes = JSON.parse(localStorage.getItem(`demo_sub_notebooks_${gId}_${sId}`) || "[]") as Notebook[];
       setNotebooks(localNotes);
+
+      const localEvents = JSON.parse(localStorage.getItem(`demo_sub_events_${gId}_${sId}`) || "[]") as CalendarEvent[];
+      setCalendarEvents(localEvents);
     } else {
       // Firebase Cloud - listen to items
       const gId = selectedGroup.id;
@@ -1414,10 +1445,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         (err) => handleFirestoreError(err, OperationType.LIST, notesPath)
       );
 
+      const eventsPath = `groups/${gId}/subgroups/${sId}/events`;
+      const unsubEvents = onSnapshot(
+        collection(db, eventsPath),
+        (snap) => {
+          const arr: CalendarEvent[] = [];
+          snap.forEach((doc) => arr.push({ ...doc.data(), id: doc.id } as CalendarEvent));
+          setCalendarEvents(arr);
+        },
+        (err) => handleFirestoreError(err, OperationType.LIST, eventsPath)
+      );
+
       return () => {
         unsubTasks();
         unsubWb();
         unsubNotes();
+        unsubEvents();
       };
     }
   }, [currentUser, activeTab, selectedGroup, selectedSubgroup, isDemoMode]);
@@ -2221,6 +2264,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return id
             ? doc(db, `groups/${selectedGroup.id}/subgroups/${selectedSubgroup.id}/notebooks`, id)
             : collection(db, `groups/${selectedGroup.id}/subgroups/${selectedSubgroup.id}/notebooks`);
+        }
+      }
+    }
+    return null;
+  };
+
+  const getEventsContext = (id?: string) => {
+    if (!currentUser) return null;
+    if (activeTab === "personal") {
+      if (isDemoMode) {
+        return selectedSubgroup
+          ? `demo_personal_events_${currentUser.id}_${selectedSubgroup.id}`
+          : `demo_personal_events_${currentUser.id}`;
+      } else {
+        return selectedSubgroup
+          ? (id ? doc(db, `users/${currentUser.id}/personalSubgroups/${selectedSubgroup.id}/events`, id) : collection(db, `users/${currentUser.id}/personalSubgroups/${selectedSubgroup.id}/events`))
+          : (id ? doc(db, `users/${currentUser.id}/personalEvents`, id) : collection(db, `users/${currentUser.id}/personalEvents`));
+      }
+    } else {
+      if (selectedGroup && selectedSubgroup) {
+        if (isDemoMode) {
+          return `demo_sub_events_${selectedGroup.id}_${selectedSubgroup.id}`;
+        } else {
+          return id
+            ? doc(db, `groups/${selectedGroup.id}/subgroups/${selectedSubgroup.id}/events`, id)
+            : collection(db, `groups/${selectedGroup.id}/subgroups/${selectedSubgroup.id}/events`);
         }
       }
     }
@@ -3276,6 +3345,126 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // --- CALENDAR ACTIONS ---
+
+  const createCalendarEvent = async (data: Partial<CalendarEvent>): Promise<void> => {
+    if (!currentUser) return;
+    const eventId = Math.random().toString(36).substring(2, 9);
+
+    let assignedToName = "";
+    if (data.assignedTo === "all") {
+      assignedToName = "Geral / Todos";
+    } else if (data.assignedTo) {
+      const mem = groupMembers.find((m) => m.userId === data.assignedTo);
+      assignedToName = mem ? mem.name : "";
+    }
+
+    const newEvent: CalendarEvent = {
+      id: isDemoMode ? eventId : "",
+      title: data.title || "Novo compromisso",
+      description: data.description || "",
+      date: data.date || new Date().toISOString().slice(0, 10),
+      endDate: data.endDate || data.date || new Date().toISOString().slice(0, 10),
+      startTime: data.startTime || "",
+      endTime: data.endTime || "",
+      allDay: data.allDay ?? false,
+      location: data.location || "",
+      color: data.color || "#0ea5e9",
+      assignedTo: data.assignedTo || "",
+      assignedToName,
+      taskId: data.taskId || "",
+      creatorId: currentUser.id,
+      creatorName: currentUser.name,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const ctx = getEventsContext();
+    if (!ctx) return;
+
+    if (isDemoMode) {
+      newEvent.id = eventId;
+      const key = ctx as string;
+      const local = JSON.parse(localStorage.getItem(key) || "[]") as CalendarEvent[];
+      localStorage.setItem(key, JSON.stringify([...local, newEvent]));
+      setCalendarEvents((prev) => [...prev, newEvent]);
+      if (activeTab === "groups" && selectedGroup && selectedSubgroup && data.assignedTo) {
+        await addGroupNotification(
+          "assigned",
+          `${currentUser.name} agendou "${newEvent.title}" para ${assignedToName || "o grupo"}`,
+          eventId,
+          data.assignedTo
+        );
+      }
+    } else {
+      try {
+        const colRef = ctx as any;
+        const res = await addDoc(colRef, newEvent);
+        await updateDoc(doc(db, colRef.path, res.id), { id: res.id });
+        if (activeTab === "groups" && selectedGroup && selectedSubgroup && data.assignedTo) {
+          await addGroupNotification(
+            "assigned",
+            `${currentUser.name} agendou "${newEvent.title}" para ${assignedToName || "o grupo"}`,
+            res.id,
+            data.assignedTo
+          );
+        }
+      } catch (e) {
+        handleFirestoreError(e, OperationType.CREATE, "events");
+      }
+    }
+  };
+
+  const updateCalendarEvent = async (id: string, fields: Partial<CalendarEvent>): Promise<void> => {
+    if (!currentUser) return;
+    const ctx = getEventsContext(id);
+    if (!ctx) return;
+
+    let patch: Partial<CalendarEvent> = { ...fields, updatedAt: new Date().toISOString() };
+    if (fields.assignedTo !== undefined) {
+      if (fields.assignedTo === "all") patch.assignedToName = "Geral / Todos";
+      else if (fields.assignedTo) {
+        const mem = groupMembers.find((m) => m.userId === fields.assignedTo);
+        patch.assignedToName = mem ? mem.name : "";
+      } else patch.assignedToName = "";
+    }
+
+    if (isDemoMode) {
+      const key = getEventsContext() as string;
+      const updated = calendarEvents.map((ev) => (ev.id === id ? { ...ev, ...patch } : ev));
+      setCalendarEvents(updated);
+      localStorage.setItem(key, JSON.stringify(updated));
+    } else {
+      try {
+        const docRef = ctx as any;
+        await updateDoc(docRef, patch);
+      } catch (e) {
+        handleFirestoreError(e, OperationType.UPDATE, `events/${id}`);
+      }
+    }
+  };
+
+  const deleteCalendarEvent = async (id: string): Promise<void> => {
+    if (!currentUser) return;
+    const ctx = getEventsContext(id);
+    if (!ctx) return;
+
+    if (isDemoMode) {
+      const key = getEventsContext() as string;
+      const filtered = calendarEvents.filter((ev) => ev.id !== id);
+      setCalendarEvents(filtered);
+      localStorage.setItem(key, JSON.stringify(filtered));
+    } else {
+      setCalendarEvents((prev) => prev.filter((ev) => ev.id !== id));
+      try {
+        const docRef = ctx as any;
+        await deleteDoc(docRef);
+      } catch (e) {
+        handleFirestoreError(e, OperationType.DELETE, `events/${id}`);
+      }
+    }
+  };
+
   const enterDemoMode = () => {
     setIsDemoMode(true);
     const storedUser = localStorage.getItem("demo_user_logged");
@@ -3311,6 +3500,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         tasks,
         whiteboardItems,
         notebooks,
+        calendarEvents,
         chatMessages,
         auditLogs,
         allGroupTasks,
@@ -3383,6 +3573,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         createNotebook,
         updateNotebook,
         deleteNotebook,
+
+        createCalendarEvent,
+        updateCalendarEvent,
+        deleteCalendarEvent,
         sendChatMessage,
         editChatMessage,
         deleteChatMessage,

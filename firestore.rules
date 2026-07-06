@@ -47,6 +47,9 @@ service cloud.firestore {
     match /users/{userId}/personalNotes/{noteId} {
       allow read, write: if isOwner(userId);
     }
+    match /users/{userId}/personalEvents/{eventId} {
+      allow read, write: if isOwner(userId);
+    }
     match /users/{userId}/personalBoards/{boardId} {
       allow read, write: if isOwner(userId);
     }
@@ -60,6 +63,9 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
       match /notebooks/{noteId} {
+        allow read, write: if isOwner(userId);
+      }
+      match /events/{eventId} {
         allow read, write: if isOwner(userId);
       }
     }
@@ -144,6 +150,11 @@ service cloud.firestore {
         }
 
         match /notebooks/{noteId} {
+          allow read: if isGroupMember(groupId);
+          allow write: if isGroupMember(groupId) && hasSubgroupPermission(subgroupId);
+        }
+
+        match /events/{eventId} {
           allow read: if isGroupMember(groupId);
           allow write: if isGroupMember(groupId) && hasSubgroupPermission(subgroupId);
         }

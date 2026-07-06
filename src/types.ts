@@ -125,6 +125,26 @@ export interface ChatMessage {
   pending?: boolean;
 }
 
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  description?: string;
+  date: string; // YYYY-MM-DD (start day)
+  endDate?: string; // YYYY-MM-DD (optional, for multi-day; defaults to date)
+  startTime?: string; // HH:mm
+  endTime?: string; // HH:mm
+  allDay?: boolean;
+  location?: string;
+  color: string; // hex color used for the dot / block
+  assignedTo?: string; // userId of a group member, "all", or empty
+  assignedToName?: string;
+  taskId?: string; // when the event mirrors/links an existing task
+  creatorId: string;
+  creatorName?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AuditLogEntry {
   id: string;
   groupId: string;
