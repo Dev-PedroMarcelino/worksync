@@ -112,7 +112,7 @@ interface AppContextType {
   getSubgroupPermissions: (subgroupId: string) => Promise<{ [userId: string]: boolean }>;
 
   // Actions - Tasks
-  createTask: (title: string, description: string, priority: "low" | "medium" | "high", dueDate: string, assignedTo?: string, checklistTexts?: string[]) => Promise<void>;
+  createTask: (title: string, description: string, priority: "low" | "medium" | "high", dueDate: string, assignedTo?: string, checklistTexts?: string[], tags?: string[], status?: Task["status"]) => Promise<void>;
   toggleTaskStatus: (taskId: string) => Promise<void>;
   updateTaskFields: (taskId: string, fields: Partial<Task>) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
@@ -125,8 +125,9 @@ interface AppContextType {
   toggleWhiteboardConnection: (id1: string, id2: string) => Promise<void>;
 
   // Actions - Notebooks
-  createNotebook: (title: string, content: string, color: string) => Promise<void>;
+  createNotebook: (title: string, content: string, color: string, extra?: Partial<Notebook>) => Promise<void>;
   updateNotebook: (id: string, title: string, content: string, color: string) => Promise<void>;
+  updateNotebookFields: (id: string, fields: Partial<Notebook>) => Promise<void>;
   deleteNotebook: (id: string) => Promise<void>;
 
   // Actions - Calendar
@@ -376,7 +377,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Check task completions for user tasks
     tasks.forEach((task) => {
       const prevTask = prevTasksRef.current.find((t) => t.id === task.id);
-      const wasCompleted = task.status === "completed" && (!prevTask || prevTask.status === "pending");
+      const wasCompleted = task.status === "completed" && (!prevTask || prevTask.status !== "completed");
       const createdByMe = task.creatorId === currentUser.id;
 
       if (wasCompleted && createdByMe) {
@@ -1091,7 +1092,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     tasks.forEach((task) => {
       const isPersonalTask = activeTab === "personal" && task.creatorId === currentUser.id;
-      const isDueToday = task.dueDate === localTodayStr && task.status === "pending";
+      const isDueToday = task.dueDate === localTodayStr && task.status !== "completed";
       
       if (isPersonalTask && isDueToday && !notifiedTasksRef.current.has(task.id)) {
         notifiedTasksRef.current.add(task.id);
@@ -2507,7 +2508,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     priority: "low" | "medium" | "high",
     dueDate: string,
     assignedTo?: string,
-    checklistTexts?: string[]
+    checklistTexts?: string[],
+    tags?: string[],
+    status?: Task["status"]
   ): Promise<void> => {
     if (!currentUser) return;
     const taskId = Math.random().toString(36).substring(2, 9);
@@ -2530,11 +2533,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: isDemoMode ? taskId : "",
       title,
       description,
-      status: "pending",
+      status: status || "pending",
       priority,
       dueDate: dueDate || "",
       assignedTo: assignedTo || "",
       assignedToName: assignedToName || "",
+      tags: tags || [],
+      order: Date.now(),
       checklist: checkItems,
       creatorId: currentUser.id,
       createdAt: new Date().toISOString(),
@@ -2589,7 +2594,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const taskToToggle = tasks.find((t) => t.id === taskId);
     if (!taskToToggle) return;
 
-    const nextStatus = taskToToggle.status === "pending" ? "completed" : "pending";
+    const nextStatus = taskToToggle.status === "completed" ? "pending" : "completed";
 
     const ctx = getTaskContext(taskId);
     if (!ctx) return;
@@ -3252,23 +3257,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // --- NOTEBOOKS ACTIONS ---
 
-  const createNotebook = async (title: string, content: string, color: string): Promise<void> => {
+  const createNotebook = async (title: string, content: string, color: string, extra?: Partial<Notebook>): Promise<void> => {
     if (!currentUser) return;
     const noteId = Math.random().toString(36).substring(2, 9);
 
     const ctx = getNotesContext();
     if (!ctx) return;
 
+    const base = {
+      title,
+      content,
+      color,
+      pinned: extra?.pinned ?? false,
+      tags: extra?.tags ?? [],
+      creatorId: currentUser.id,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
     if (isDemoMode) {
-      const newNote: Notebook = {
-        id: noteId,
-        title,
-        content,
-        color,
-        creatorId: currentUser.id,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+      const newNote: Notebook = { id: noteId, ...base };
       const key = ctx as string;
       const existing = JSON.parse(localStorage.getItem(key) || "[]") as Notebook[];
       localStorage.setItem(key, JSON.stringify([...existing, newNote]));
@@ -3277,20 +3285,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         const colRef = ctx as any;
         const docRef = doc(colRef);
-        const newNote: Notebook = {
-          id: docRef.id,
-          title,
-          content,
-          color,
-          creatorId: currentUser.id,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
+        const newNote: Notebook = { id: docRef.id, ...base };
         // Optimistic update to show the note instantly in the UI
         setNotebooks((prev) => [...prev, newNote]);
         await setDoc(docRef, newNote);
       } catch (e) {
         handleFirestoreError(e, OperationType.CREATE, "notebooks");
+      }
+    }
+  };
+
+  const updateNotebookFields = async (id: string, fields: Partial<Notebook>): Promise<void> => {
+    if (!currentUser) return;
+    const ctx = getNotesContext(id);
+    if (!ctx) return;
+
+    const patch = { ...fields, updatedAt: new Date().toISOString() };
+    if (isDemoMode) {
+      const key = getNotesContext() as string;
+      setNotebooks((prev) => {
+        const updated = prev.map((n) => (n.id === id ? { ...n, ...patch } : n));
+        localStorage.setItem(key, JSON.stringify(updated));
+        return updated;
+      });
+    } else {
+      try {
+        const docRef = ctx as any;
+        await updateDoc(docRef, patch);
+      } catch (e) {
+        handleFirestoreError(e, OperationType.UPDATE, `notebooks/${id}`);
       }
     }
   };
@@ -3572,6 +3595,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         createNotebook,
         updateNotebook,
+        updateNotebookFields,
         deleteNotebook,
 
         createCalendarEvent,

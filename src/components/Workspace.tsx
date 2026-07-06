@@ -415,9 +415,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
   const todayStr = getTodayStr();
   const tomorrowStr = getTomorrowStr();
 
-  // Filter tasks: due today and pending
+  // Filter tasks: due today and not yet completed
   const activeDueTasks = tasks.filter(
-    (t) => t.dueDate === todayStr && t.status === "pending" && !dismissedTaskIds.includes(t.id)
+    (t) => t.dueDate === todayStr && t.status !== "completed" && !dismissedTaskIds.includes(t.id)
   );
 
   // Pending Friend Requests:
@@ -433,7 +433,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
   // Group tasks deadlines ending today/tomorrow (across all subgroups)
   const groupTasksAlerts = allGroupTasks.filter(
     (t) =>
-      t.status === "pending" &&
+      t.status !== "completed" &&
       (t.dueDate === todayStr || t.dueDate === tomorrowStr) &&
       !dismissedTaskIds.includes(t.id)
   );
