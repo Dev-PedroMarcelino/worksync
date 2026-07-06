@@ -8,6 +8,7 @@ import { useApp } from "../context/AppContext";
 import { Plus, Trash2, Edit3, BookOpen, Clock, Calendar, Check, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Notebook } from "../types";
+import { useConfirm } from "../context/ConfirmContext";
 
 interface NotebooksListProps {
   canEdit: boolean;
@@ -29,6 +30,7 @@ export const NotebooksList: React.FC<NotebooksListProps> = ({ canEdit }) => {
     updateNotebook,
     deleteNotebook,
   } = useApp();
+  const confirm = useConfirm();
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingNote, setEditingNote] = useState<Notebook | null>(null);
@@ -75,7 +77,14 @@ export const NotebooksList: React.FC<NotebooksListProps> = ({ canEdit }) => {
   const handleDelete = async (e: React.MouseEvent, noteId: string) => {
     e.stopPropagation();
     e.preventDefault();
-    if (confirm("Deseja mesmo excluir este bloco de notas?")) {
+    if (
+      await confirm({
+        title: "Excluir bloco de notas",
+        message: "Deseja mesmo excluir este bloco de notas?",
+        confirmLabel: "Excluir",
+        tone: "danger",
+      })
+    ) {
       try {
         await deleteNotebook(noteId);
       } catch (err) {

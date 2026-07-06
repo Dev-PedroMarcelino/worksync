@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useApp } from "../context/AppContext";
 import { X, Check, Camera, Eye, Info, ShieldCheck, Sun, Moon, Copy, Trash2, UserPlus } from "lucide-react";
 import { motion } from "motion/react";
+import { useConfirm } from "../context/ConfirmContext";
 
 interface ProfileModalProps {
   onClose: () => void;
@@ -30,6 +31,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose, initialTab 
     sendFriendRequest,
     removeFriend
   } = useApp();
+  const confirm = useConfirm();
 
   const [activeTab, setActiveTab] = useState<"profile" | "friends">(initialTab);
 
@@ -446,7 +448,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose, initialTab 
                       id={`remove-friend-btn-${friend.id}`}
                       type="button"
                       onClick={async () => {
-                        if (window.confirm(`Deseja realmente remover ${friend.name} da sua lista de amigos?`)) {
+                        if (
+                          await confirm({
+                            title: "Remover amigo",
+                            message: `Deseja realmente remover ${friend.name} da sua lista de amigos?`,
+                            confirmLabel: "Remover",
+                            tone: "danger",
+                          })
+                        ) {
                           await removeFriend(friend.id);
                         }
                       }}

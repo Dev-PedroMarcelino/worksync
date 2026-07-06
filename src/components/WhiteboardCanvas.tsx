@@ -7,6 +7,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useApp } from "../context/AppContext";
 import { Plus, Trash2, StickyNote, Info, Move, X, Link } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { useConfirm } from "../context/ConfirmContext";
 
 interface WhiteboardCanvasProps {
   canEdit: boolean;
@@ -33,6 +34,7 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({ canEdit }) =
     createWhiteboardBoard,
     deleteWhiteboardBoard,
   } = useApp();
+  const confirm = useConfirm();
 
   const [noteInput, setNoteInput] = useState("");
   const [selectedColorIdx, setSelectedColorIdx] = useState(0);
@@ -297,9 +299,16 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({ canEdit }) =
                   <button
                     id={`board-tab-delete-btn-${board.id}`}
                     type="button"
-                    onClick={(e) => {
+                    onClick={async (e) => {
                       e.stopPropagation();
-                      if (window.confirm(`Quer mesmo apagar o quadro "${board.name}" e todos os seus post-its?`)) {
+                      if (
+                        await confirm({
+                          title: "Apagar quadro",
+                          message: `Quer mesmo apagar o quadro "${board.name}" e todos os seus post-its?`,
+                          confirmLabel: "Apagar",
+                          tone: "danger",
+                        })
+                      ) {
                         deleteWhiteboardBoard(board.id);
                         if (isActive) setActiveBoardId(null);
                       }
@@ -423,8 +432,15 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({ canEdit }) =
                           </button>
                           <button
                             id={`grid-delete-btn-${item.id}`}
-                            onClick={() => {
-                              if (window.confirm("Deseja apagar este post-it do quadro?")) {
+                            onClick={async () => {
+                              if (
+                                await confirm({
+                                  title: "Excluir post-it",
+                                  message: "Deseja apagar este post-it do quadro?",
+                                  confirmLabel: "Excluir",
+                                  tone: "danger",
+                                })
+                              ) {
                                 deleteWhiteboardItem(item.id);
                               }
                             }}

@@ -5,6 +5,7 @@
 
 import React, { useState } from "react";
 import { AppProvider, useApp } from "./context/AppContext";
+import { ConfirmProvider } from "./context/ConfirmContext";
 import { AuthScreen } from "./components/AuthScreen";
 import { Navigation } from "./components/Navigation";
 import { Workspace } from "./components/Workspace";
@@ -131,7 +132,9 @@ function MainLayout() {
 export default function App() {
   return (
     <AppProvider>
-      <MainLayout />
+      <ConfirmProvider>
+        <MainLayout />
+      </ConfirmProvider>
     </AppProvider>
   );
 }

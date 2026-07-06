@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Group } from "../types";
+import { useConfirm } from "../context/ConfirmContext";
 
 interface NavigationProps {
   onOpenProfile: (tab?: "profile" | "friends") => void;
@@ -69,6 +70,8 @@ export const Navigation: React.FC<NavigationProps> = ({ onOpenProfile, isMobile,
     isSidebarCollapsed,
     setIsSidebarCollapsed,
   } = useApp();
+
+  const confirm = useConfirm();
 
   // Which "space" the contextual panel is showing.
   const [browseSpace, setBrowseSpace] = useState<BrowseSpace>(
@@ -541,8 +544,16 @@ export const Navigation: React.FC<NavigationProps> = ({ onOpenProfile, isMobile,
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          if (window.confirm(`Remover o subgrupo "${sub.name}"?`)) deleteSubgroup(sub.id);
+                        onClick={async () => {
+                          if (
+                            await confirm({
+                              title: "Remover subgrupo",
+                              message: `Tem certeza que deseja remover o subgrupo "${sub.name}"?`,
+                              confirmLabel: "Remover",
+                              tone: "danger",
+                            })
+                          )
+                            deleteSubgroup(sub.id);
                         }}
                         className="opacity-0 group-hover:opacity-100 p-1.5 mr-1 text-gray-400 hover:text-rose-500 rounded-md transition-all cursor-pointer"
                         title="Apagar subgrupo"
@@ -702,8 +713,16 @@ export const Navigation: React.FC<NavigationProps> = ({ onOpenProfile, isMobile,
                               {canDelete && (
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    if (window.confirm(`Apagar o canal "${sub.name}"?`)) deleteSubgroup(sub.id);
+                                  onClick={async () => {
+                                    if (
+                                      await confirm({
+                                        title: "Excluir canal",
+                                        message: `Apagar o canal "${sub.name}"? Todo o conteúdo dele será perdido.`,
+                                        confirmLabel: "Excluir",
+                                        tone: "danger",
+                                      })
+                                    )
+                                      deleteSubgroup(sub.id);
                                   }}
                                   className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-rose-500 rounded-md transition-all cursor-pointer"
                                   title="Excluir canal"
@@ -723,8 +742,15 @@ export const Navigation: React.FC<NavigationProps> = ({ onOpenProfile, isMobile,
                       {currentUser?.id !== selectedGroup.creatorId ? (
                         <button
                           type="button"
-                          onClick={() => {
-                            if (window.confirm("Deseja realmente sair deste grupo?")) {
+                          onClick={async () => {
+                            if (
+                              await confirm({
+                                title: "Sair do grupo",
+                                message: `Deseja realmente sair do grupo "${selectedGroup.name}"?`,
+                                confirmLabel: "Sair",
+                                tone: "danger",
+                              })
+                            ) {
                               leaveGroup(selectedGroup.id);
                               openGroupsDashboard();
                             }

@@ -41,6 +41,7 @@ import { WhiteboardCanvas } from "./WhiteboardCanvas";
 import { NotebooksList } from "./NotebooksList";
 import { GroupChatModule } from "./GroupChatModule";
 import { GroupMember } from "../types";
+import { useConfirm } from "../context/ConfirmContext";
 
 interface WorkspaceProps {
   onOpenMobileSidebar: () => void;
@@ -111,6 +112,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
     promptInstall,
     requestNotificationPermission,
   } = useApp();
+  const confirm = useConfirm();
   const [showManagePermissions, setShowManagePermissions] = useState(false);
   const [showSubgroupMembers, setShowSubgroupMembers] = useState(false);
   const [subPermissions, setSubPermissions] = useState<{ [uId: string]: boolean }>({});
@@ -269,7 +271,12 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
 
   const handleDeleteSubgroup = async (groupId: string, subgroupId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm("Tem certeza de que deseja excluir este subgrupo? Todas as tarefas e arquivos dele serão perdidos permanentemente.")) return;
+    if (!(await confirm({
+      title: "Excluir subgrupo",
+      message: "Todas as tarefas e arquivos dele serão perdidos permanentemente.",
+      confirmLabel: "Excluir",
+      tone: "danger",
+    }))) return;
     try {
       await deleteSubgroup(subgroupId);
       setLoadedSubgroups((prev) => ({
@@ -283,7 +290,12 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
 
   const handleDeleteGroup = async (groupId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm("Tem certeza de que deseja excluir este grupo? Esta ação é irreversível e excluirá todos os dados do grupo.")) return;
+    if (!(await confirm({
+      title: "Excluir grupo",
+      message: "Esta ação é irreversível e excluirá todos os dados do grupo.",
+      confirmLabel: "Excluir grupo",
+      tone: "danger",
+    }))) return;
     try {
       await deleteGroup(groupId);
     } catch (err) {
@@ -293,7 +305,12 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
 
   const handleLeaveGroup = async (groupId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm("Tem certeza de que deseja sair deste grupo?")) return;
+    if (!(await confirm({
+      title: "Sair do grupo",
+      message: "Tem certeza de que deseja sair deste grupo?",
+      confirmLabel: "Sair",
+      tone: "danger",
+    }))) return;
     try {
       await leaveGroup(groupId);
     } catch (err) {
