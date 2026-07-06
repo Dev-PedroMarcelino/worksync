@@ -4,8 +4,8 @@
   "description": "Organização de Tarefas e Colaboração em Equipe",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#09090b",
-  "theme_color": "#09090b",
+  "background_color": "#0b1526",
+  "theme_color": "#0b1526",
   "icons": [
     {
       "src": "/logo.svg",

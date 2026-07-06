@@ -36,7 +36,7 @@ export const AuthScreen: React.FC = () => {
         transition={{ duration: 0.4 }}
         className="w-full max-w-md bg-white dark:bg-zinc-900 border border-gray-200/80 dark:border-zinc-800/80 shadow-2xl rounded-3xl p-8 relative overflow-hidden"
       >
-        <div className="absolute top-0 left-0 right-0 h-[4px] bg-linear-to-r from-emerald-500 via-sky-500 to-indigo-500" />
+        <div className="absolute top-0 left-0 right-0 h-[4px] bg-linear-to-r from-sky-500 via-amber-400 to-rose-400" />
 
         {/* Header */}
         <div className="text-center mb-8">
