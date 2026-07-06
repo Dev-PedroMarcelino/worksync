@@ -478,11 +478,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
       }
     }
     // Inside a channel the group-level chat is not available, so leave the chat
-    // module (its header tab is hidden there) and land on tasks.
-    if (!isPersonal && selectedSubgroup && activeModule === "chat") {
+    // module (its header tab is hidden there) and land on tasks — but NOT when a
+    // direct-message thread is open, since DMs render through the chat module and
+    // must stay reachable from anywhere (including while a channel is selected).
+    if (!isPersonal && selectedSubgroup && activeModule === "chat" && !selectedDmUserId) {
       setActiveModule("tasks");
     }
-  }, [isPersonal, selectedGroup, selectedSubgroup, activeModule, setActiveModule]);
+  }, [isPersonal, selectedGroup, selectedSubgroup, activeModule, selectedDmUserId, setActiveModule]);
 
   const handleTogglePermission = async (targetUserId: string, currentVal: boolean) => {
     if (!selectedSubgroup) return;
