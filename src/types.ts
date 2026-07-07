@@ -60,6 +60,15 @@ export interface ChecklistItem {
 
 export type TaskStatus = "pending" | "in_progress" | "review" | "completed";
 
+export interface TaskComment {
+  id: string;
+  authorId: string;
+  authorName: string;
+  text: string;
+  createdAt: string;
+  mentions?: string[]; // userIds mencionados via @
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -72,6 +81,7 @@ export interface Task {
   tags?: string[];
   order?: number; // manual ordering within a Kanban column
   recurrence?: "none" | "daily" | "weekly" | "monthly"; // auto-recreate on completion
+  comments?: TaskComment[];
   checklist: ChecklistItem[];
   creatorId: string;
   createdAt: string;
