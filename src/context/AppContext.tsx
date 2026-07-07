@@ -388,11 +388,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (wasCompleted && createdByMe) {
         playNotificationSound();
         addToast(
-          "Tarefa Concluída! 🎉",
+          "Tarefa concluída",
           `A tarefa "${task.title}" que você criou foi concluída.`,
           "task"
         );
-        showNativeNotification("Tarefa Concluída! 🎉", `A tarefa "${task.title}" que você criou foi concluída.`);
+        showNativeNotification("Tarefa concluída", `A tarefa "${task.title}" que você criou foi concluída.`);
       }
     });
 
@@ -1037,7 +1037,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (isForMe && isRecent) {
           playNotificationSound();
-          addToast("Atualização do Grupo 👥", notif.text, "task");
+          addToast("Atualização do grupo", notif.text, "task");
           showNativeNotification(`Grupo: ${selectedGroup.name}`, notif.text);
         }
       }
@@ -1071,11 +1071,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (isNewPending && isReceived) {
         playNotificationSound();
         addToast(
-          "Pedido de Amizade 👥",
+          "Pedido de amizade",
           `${req.senderName} enviou um pedido de amizade.`,
           "task"
         );
-        showNativeNotification("Pedido de Amizade 👥", `${req.senderName} enviou um pedido de amizade.`);
+        showNativeNotification("Pedido de amizade", `${req.senderName} enviou um pedido de amizade.`);
       }
     });
 
@@ -1103,11 +1103,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         notifiedTasksRef.current.add(task.id);
         playNotificationSound();
         addToast(
-          "Prazo de Tarefa 📅",
+          "Prazo de tarefa",
           `A sua tarefa pessoal "${task.title}" vence hoje!`,
           "task"
         );
-        showNativeNotification("Prazo de Tarefa 📅", `A sua tarefa pessoal "${task.title}" vence hoje!`);
+        showNativeNotification("Prazo de tarefa", `A sua tarefa pessoal "${task.title}" vence hoje!`);
       }
     });
   }, [tasks, activeTab, currentUser]);
@@ -1142,11 +1142,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               if (isNew && isFromFriend && !isChatActive) {
                 playNotificationSound();
                 addToast(
-                  "Nova Mensagem Direta 💬",
+                  "Nova mensagem direta",
                   `Você recebeu uma mensagem de ${friend.name}: "${lastMsg.text}"`,
                   "chat"
                 );
-                showNativeNotification("Nova Mensagem Direta 💬", `Você recebeu uma mensagem de ${friend.name}: "${lastMsg.text}"`);
+                showNativeNotification("Nova mensagem direta", `Você recebeu uma mensagem de ${friend.name}: "${lastMsg.text}"`);
               }
               
               return { ...prev, [friend.id]: lastMsg };
@@ -1189,11 +1189,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 if (isRecent && isFromFriend && !isChatActive) {
                   playNotificationSound();
                   addToast(
-                    "Nova Mensagem Direta 💬",
+                    "Nova mensagem direta",
                     `Você recebeu uma mensagem de ${friend.name}: "${lastMsg.text}"`,
                     "chat"
                   );
-                  showNativeNotification("Nova Mensagem Direta 💬", `Você recebeu uma mensagem de ${friend.name}: "${lastMsg.text}"`);
+                  showNativeNotification("Nova mensagem direta", `Você recebeu uma mensagem de ${friend.name}: "${lastMsg.text}"`);
                 }
                 
                 return { ...prev, [friend.id]: lastMsg };

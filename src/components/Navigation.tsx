@@ -983,7 +983,7 @@ export const Navigation: React.FC<NavigationProps> = ({ onOpenProfile, isMobile,
                       className={inputCls}
                     >
                       <option value="public">Público</option>
-                      <option value="private">Privado 🔒</option>
+                      <option value="private">Privado</option>
                     </select>
                   </Field>
                 )}

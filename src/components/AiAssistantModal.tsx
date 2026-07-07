@@ -20,6 +20,7 @@ import {
   Trash2,
   ArrowLeft,
   Clock,
+  MapPin,
 } from "lucide-react";
 import { useApp } from "@/src/context/AppContext";
 import { useSpeechRecognition } from "@/src/hooks/useSpeechRecognition";
@@ -529,7 +530,7 @@ const ReviewEventRow: React.FC<{
               {event.endTime ? `–${event.endTime}` : ""}
             </span>
           )}
-          {event.location && <span className="truncate">📍 {event.location}</span>}
+          {event.location && <span className="truncate inline-flex items-center gap-1"><MapPin className="w-3 h-3 shrink-0" /> {event.location}</span>}
         </div>
       </div>
       <button onClick={onRemove} className="opacity-0 group-hover:opacity-100 p-1 text-gray-300 hover:text-red-500 transition-all cursor-pointer shrink-0">

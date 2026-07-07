@@ -4,11 +4,13 @@
  */
 
 import React from "react";
+import { Medal, Crown, Gem, Users, Sparkles, type LucideIcon } from "lucide-react";
 import { getPlan, type PlanId } from "../config/plans";
 
 /**
  * Avatar do usuário com moldura especial de acordo com o plano.
- * Free: borda simples. Planos pagos: moldura em gradiente + brilho + gema.
+ * Free: borda simples. Planos pagos: moldura em gradiente + brilho + selo
+ * (ícone sobre o gradiente do plano — sem emojis).
  */
 interface PlanAvatarProps {
   photoUrl?: string;
@@ -21,10 +23,29 @@ interface PlanAvatarProps {
   galaxy?: boolean;
 }
 
+const PLAN_ICONS: Record<string, LucideIcon> = {
+  prata: Medal,
+  ouro: Crown,
+  diamante: Gem,
+  esmeralda: Users,
+};
+
+const SealBadge: React.FC<{ size: number; gradient: string; icon: LucideIcon; className?: string }> = ({ size, gradient, icon: Icon, className = "" }) => {
+  const dim = Math.max(14, Math.round(size * 0.4));
+  return (
+    <span
+      className={`absolute -bottom-0.5 -right-0.5 rounded-full flex items-center justify-center shadow-md ring-2 ring-white dark:ring-zinc-900 bg-gradient-to-br ${gradient} ${className}`}
+      style={{ width: dim, height: dim }}
+      aria-hidden
+    >
+      <Icon className="text-white drop-shadow" style={{ width: dim * 0.62, height: dim * 0.62 }} strokeWidth={2.5} />
+    </span>
+  );
+};
+
 const PlanAvatar: React.FC<PlanAvatarProps> = ({ photoUrl, plan, size = 36, className = "", showGem = true, title, galaxy }) => {
   const def = getPlan(plan);
   const dim = { width: size, height: size };
-  const gemSizeFor = (s: number) => Math.max(12, Math.round(s * 0.34));
 
   // Moldura exclusiva do Criador: galáxia animada (independe do plano).
   if (galaxy) {
@@ -37,9 +58,7 @@ const PlanAvatar: React.FC<PlanAvatarProps> = ({ photoUrl, plan, size = 36, clas
           {photoUrl ? <img src={photoUrl} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" /> : null}
         </span>
         {showGem && (
-          <span className="absolute -bottom-1 -right-1 leading-none drop-shadow ws-galaxy-twinkle" style={{ fontSize: gemSizeFor(size) }} aria-hidden>
-            🌌
-          </span>
+          <SealBadge size={size} gradient="from-violet-500 via-fuchsia-500 to-sky-500" icon={Sparkles} className="ws-galaxy-twinkle" />
         )}
       </span>
     );
@@ -53,7 +72,7 @@ const PlanAvatar: React.FC<PlanAvatarProps> = ({ photoUrl, plan, size = 36, clas
     );
   }
 
-  const gemSize = Math.max(12, Math.round(size * 0.34));
+  const Icon = PLAN_ICONS[def.id] || Medal;
 
   return (
     <span className={`relative inline-block rounded-full ${className}`} style={dim} title={title || `Plano ${def.name}`}>
@@ -62,15 +81,7 @@ const PlanAvatar: React.FC<PlanAvatarProps> = ({ photoUrl, plan, size = 36, clas
           {photoUrl ? <img src={photoUrl} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" /> : null}
         </span>
       </span>
-      {showGem && (
-        <span
-          className="absolute -bottom-1 -right-1 leading-none drop-shadow"
-          style={{ fontSize: gemSize }}
-          aria-hidden
-        >
-          {def.frame.gem}
-        </span>
-      )}
+      {showGem && <SealBadge size={size} gradient={def.frame.ring} icon={Icon} />}
     </span>
   );
 };

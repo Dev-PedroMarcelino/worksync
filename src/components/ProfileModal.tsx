@@ -239,7 +239,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose, initialTab 
 
                 {photoUrl && photoUrl.startsWith("data:image/") && (
                   <div className="mt-3 flex items-center gap-2 p-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl text-xs">
-                    <span className="font-semibold truncate flex-1">✓ Foto da galeria carregada!</span>
+                    <span className="font-semibold truncate flex-1">Foto da galeria carregada!</span>
                     <button
                       type="button"
                       onClick={() => setPhotoUrl(AVATAR_PRESETS[0])}

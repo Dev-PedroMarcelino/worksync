@@ -28,7 +28,7 @@ export const AuthScreen: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-zinc-950 p-6 font-sans transition-colors duration-200">
-      <div className="absolute inset-0 bg-linear-to-b from-blue-500/5 to-transparent dark:from-zinc-900/50 pointer-events-none" />
+      <div className="absolute inset-0 bg-linear-to-b from-sky-500/5 to-transparent dark:from-zinc-900/50 pointer-events-none" />
 
       <motion.div
         initial={{ opacity: 0, y: 15 }}
@@ -36,7 +36,7 @@ export const AuthScreen: React.FC = () => {
         transition={{ duration: 0.4 }}
         className="w-full max-w-md bg-white dark:bg-zinc-900 border border-gray-200/80 dark:border-zinc-800/80 shadow-2xl rounded-3xl p-8 relative overflow-hidden"
       >
-        <div className="absolute top-0 left-0 right-0 h-[4px] bg-linear-to-r from-sky-500 via-amber-400 to-rose-400" />
+        <div className="absolute top-0 left-0 right-0 h-[3px] bg-linear-to-r from-sky-600 via-sky-400 to-sky-600" />
 
         {/* Header */}
         <div className="text-center mb-8">
