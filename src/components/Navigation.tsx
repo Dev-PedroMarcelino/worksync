@@ -27,11 +27,13 @@ import {
   LayoutGrid,
   LogOut,
   UserPlus,
+  Crown,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Group } from "../types";
 import { useConfirm } from "../context/ConfirmContext";
 import { useToast } from "../context/ToastContext";
+import PlanAvatar from "./PlanAvatar";
 
 interface NavigationProps {
   onOpenProfile: (tab?: "profile" | "friends") => void;
@@ -397,16 +399,25 @@ export const Navigation: React.FC<NavigationProps> = ({ onOpenProfile, isMobile,
           </button>
           <button
             type="button"
+            onClick={() => window.dispatchEvent(new Event("open-plans"))}
+            aria-label="Planos e assinatura"
+            title="Planos e assinatura"
+            className="w-11 h-11 rounded-2xl flex items-center justify-center text-amber-500 hover:bg-amber-500/10 transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+          >
+            <Crown className="w-5 h-5" />
+          </button>
+          <button
+            type="button"
             onClick={() => {
               onOpenProfile();
               closeMobile();
             }}
             aria-label="Meu perfil"
-            title={currentUser?.name || "Perfil"}
-            className="w-9 h-9 rounded-full overflow-hidden border border-gray-200 dark:border-zinc-700 hover:ring-2 hover:ring-sky-500 transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+            title={currentUser?.name ? `${currentUser.name} · Plano ${currentUser.plan ? currentUser.plan[0].toUpperCase() + currentUser.plan.slice(1) : "Free"}` : "Perfil"}
+            className="rounded-full hover:ring-2 hover:ring-sky-500 transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
           >
             {currentUser && (
-              <img src={currentUser.photoUrl} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+              <PlanAvatar photoUrl={currentUser.photoUrl} plan={currentUser.plan} size={38} />
             )}
           </button>
           <button

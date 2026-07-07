@@ -25,8 +25,8 @@ Stripe  ──webhook──▶  /api/webhook  (serverless)
 
 ## 1. No painel do Stripe
 
-1. Crie os **produtos e preços** (recorrentes/mensais) para os planos **Pro** e **Team**.
-   Anote os `price_...` de cada um.
+1. Crie os **produtos e preços** (recorrentes/mensais) para os planos **Prata**,
+   **Ouro**, **Diamante** e **Esmeralda**. Anote os `price_...` de cada um.
 2. Em **Developers → Webhooks**, adicione um endpoint:
    - URL: `https://SEU_DOMINIO/api/webhook`
    - Eventos: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`
@@ -48,8 +48,10 @@ Em **Project → Settings → Environment Variables**:
 | Variável | Valor |
 | --- | --- |
 | `STRIPE_SECRET_KEY` | `sk_live_...` (ou `sk_test_...`) |
-| `STRIPE_PRICE_PRO` | `price_...` do plano Pro |
-| `STRIPE_PRICE_TEAM` | `price_...` do plano Team |
+| `STRIPE_PRICE_PRATA` | `price_...` do plano Prata |
+| `STRIPE_PRICE_OURO` | `price_...` do plano Ouro |
+| `STRIPE_PRICE_DIAMANTE` | `price_...` do plano Diamante |
+| `STRIPE_PRICE_ESMERALDA` | `price_...` do plano Esmeralda (grupos) |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_...` do endpoint de webhook |
 | `FIREBASE_SERVICE_ACCOUNT` | JSON da service account (string única) |
 

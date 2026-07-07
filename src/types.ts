@@ -12,7 +12,10 @@ export interface UserProfile {
   theme: "light" | "dark";
   createdAt: string;
   friendCode?: string;
-  plan?: "free" | "pro" | "team"; // subscription tier; undefined == "free"
+  plan?: "free" | "prata" | "ouro" | "diamante" | "esmeralda"; // subscription tier; undefined == "free"
+  planExpiresAt?: string; // ISO — vencimento da assinatura (gerenciado pela cobrança/admin)
+  isAdmin?: boolean; // administrador promovido (além do super-admin fixo por e-mail)
+  blocked?: boolean; // usuário bloqueado pelo admin
 }
 
 export interface Group {

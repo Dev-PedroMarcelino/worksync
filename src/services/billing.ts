@@ -9,7 +9,7 @@
  * redireciona o navegador para a página de pagamento do Stripe.
  */
 
-export type PaidPlan = "pro" | "team";
+export type PaidPlan = "prata" | "ouro" | "diamante" | "esmeralda";
 
 export async function startCheckout(plan: PaidPlan, userId: string, email?: string): Promise<void> {
   const res = await fetch("/api/checkout", {
