@@ -165,3 +165,51 @@
 .scale-98 {
   scale: 0.98;
 }
+
+/* ── Moldura exclusiva do Criador: galáxia animada ────────────────────── */
+@keyframes ws-galaxy-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes ws-galaxy-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 6px 1px rgba(124, 58, 237, 0.55), 0 0 12px 2px rgba(37, 99, 235, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 13px 3px rgba(236, 72, 153, 0.65), 0 0 22px 5px rgba(124, 58, 237, 0.5);
+  }
+}
+@keyframes ws-galaxy-twinkle {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+.ws-galaxy-glow {
+  animation: ws-galaxy-glow 3.2s ease-in-out infinite;
+}
+.ws-galaxy-ring {
+  position: absolute;
+  inset: -25%;
+  background: conic-gradient(
+    from 0deg,
+    #7c3aed,
+    #2563eb,
+    #06b6d4,
+    #ec4899,
+    #f59e0b,
+    #a855f7,
+    #7c3aed
+  );
+  animation: ws-galaxy-spin 5s linear infinite;
+}
+.ws-galaxy-twinkle {
+  animation: ws-galaxy-twinkle 2.2s ease-in-out infinite;
+}

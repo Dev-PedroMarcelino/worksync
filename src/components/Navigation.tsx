@@ -430,7 +430,7 @@ export const Navigation: React.FC<NavigationProps> = ({ onOpenProfile, isMobile,
             className="rounded-full hover:ring-2 hover:ring-sky-500 transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
           >
             {currentUser && (
-              <PlanAvatar photoUrl={currentUser.photoUrl} plan={currentUser.plan} size={38} />
+              <PlanAvatar photoUrl={currentUser.photoUrl} plan={currentUser.plan} size={38} galaxy={isSuperAdmin(currentUser.email)} />
             )}
           </button>
           <button
