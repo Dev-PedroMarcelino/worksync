@@ -14,8 +14,8 @@ import { useToast } from "../context/ToastContext";
 import { isSuperAdmin } from "../config/admin";
 import { PLANS, PLAN_ORDER, type PlanId } from "../config/plans";
 import PlanAvatar from "./PlanAvatar";
-import { THEME_PRESETS, DEFAULT_THEME, type SiteThemeConfig } from "../config/themes";
-import { loadSiteTheme, saveSiteTheme } from "../services/siteTheme";
+import { THEME_PRESETS, DEFAULT_THEME, SURFACE_TONES, type SiteThemeConfig, type ThemePreset } from "../config/themes";
+import { loadSiteTheme, saveSiteTheme, surfacePreviewColor } from "../services/siteTheme";
 import {
   loadUsers, saveUsers, loadConfig, saveConfig, computeMetrics, planPrice, rid,
   fetchCloudUsers, persistUserPatch,
@@ -188,7 +188,10 @@ const Overview: React.FC<{ metrics: ReturnType<typeof computeMetrics> }> = ({ me
             {PLAN_ORDER.map((p) => (
               <div key={p} className="space-y-1">
                 <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-gray-600 dark:text-zinc-300 flex items-center gap-1.5">{PLANS[p].frame?.gem} {PLANS[p].name}</span>
+                  <span className="text-gray-600 dark:text-zinc-300 flex items-center gap-1.5">
+                    <span className={`w-2 h-2 rounded-full bg-gradient-to-br ${PLANS[p].frame?.ring || "from-gray-300 to-gray-400"}`} />
+                    {PLANS[p].name}
+                  </span>
                   <span className="text-gray-400">{metrics.byPlan[p]}</span>
                 </div>
                 <div className="h-2 rounded-full bg-gray-100 dark:bg-zinc-800 overflow-hidden">
@@ -285,7 +288,10 @@ const Billing: React.FC<{ users: AdminUser[]; metrics: ReturnType<typeof compute
             {revenueByPlan.map(({ p, total }) => (
               <div key={p} className="space-y-1">
                 <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-gray-600 dark:text-zinc-300">{PLANS[p].frame?.gem} {PLANS[p].name}</span>
+                  <span className="text-gray-600 dark:text-zinc-300 flex items-center gap-1.5">
+                    <span className={`w-2 h-2 rounded-full bg-gradient-to-br ${PLANS[p].frame?.ring || "from-gray-300 to-gray-400"}`} />
+                    {PLANS[p].name}
+                  </span>
                   <span className="text-gray-500 font-semibold">{BRL(total)}</span>
                 </div>
                 <div className="h-2 rounded-full bg-gray-100 dark:bg-zinc-800 overflow-hidden">
@@ -340,7 +346,7 @@ const PlansOffers: React.FC<{ config: AdminConfig; onChange: (c: AdminConfig) =>
           {PLAN_ORDER.map((p) => (
             <button key={p} onClick={() => setBest(p)}
               className={`rounded-xl border p-3 text-center cursor-pointer transition-all ${config.bestOffer === p ? "border-amber-400 bg-amber-500/10" : "border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-amber-300"}`}>
-              <div className="text-lg">{PLANS[p].frame?.gem || "•"}</div>
+              <div className={`w-6 h-6 mx-auto rounded-full bg-gradient-to-br ${PLANS[p].frame?.ring || "from-gray-200 to-gray-400"} ${PLANS[p].frame?.glow || ""}`} />
               <p className="text-xs font-bold text-gray-800 dark:text-zinc-100">{PLANS[p].name}</p>
               <p className="text-[10px] text-gray-400">{PLANS[p].price}</p>
               {config.bestOffer === p && <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-600 mt-1"><Star className="w-2.5 h-2.5" />Destaque</span>}
@@ -440,6 +446,36 @@ const Campaigns: React.FC<{ config: AdminConfig; onChange: (c: AdminConfig) => v
 };
 
 /* ------------------------------ Appearance / Temas ------------------------------ */
+
+/** Prévia em miniatura da interface com os tokens do tema. */
+const ThemePreview: React.FC<{ accent: string; hue: number; sat: number; from: string; to: string }> = ({ accent, hue, sat, from, to }) => {
+  const bg = surfacePreviewColor(hue, sat, "950");
+  const panel = surfacePreviewColor(hue, sat, "900");
+  const line = surfacePreviewColor(hue, sat, "800");
+  return (
+    <div className="h-20 w-full flex overflow-hidden" style={{ background: bg }} aria-hidden>
+      {/* rail lateral */}
+      <div className="w-8 h-full shrink-0 flex flex-col items-center gap-1.5 pt-2" style={{ background: panel }}>
+        <span className="w-3.5 h-3.5 rounded-md" style={{ background: accent }} />
+        <span className="w-3.5 h-3.5 rounded-md" style={{ background: line }} />
+        <span className="w-3.5 h-3.5 rounded-md" style={{ background: line }} />
+      </div>
+      {/* conteúdo */}
+      <div className="flex-1 p-2.5 space-y-1.5">
+        <div className="flex items-center justify-between">
+          <span className="block w-16 h-1.5 rounded-full" style={{ background: line }} />
+          <span className="block w-8 h-3 rounded-md" style={{ background: accent }} />
+        </div>
+        <span className="block w-full h-6 rounded-lg" style={{ background: panel }} />
+        <span
+          className="block w-2/3 h-1.5 rounded-full"
+          style={{ background: `linear-gradient(90deg, ${from}, ${to})` }}
+        />
+      </div>
+    </div>
+  );
+};
+
 const Appearance: React.FC<{ notify: (m: string, t?: any) => void }> = ({ notify }) => {
   const [cfg, setCfg] = useState<SiteThemeConfig>(() => loadSiteTheme());
 
@@ -447,27 +483,46 @@ const Appearance: React.FC<{ notify: (m: string, t?: any) => void }> = ({ notify
     setCfg(next);
     saveSiteTheme(next);
   };
-  const applyPreset = (id: string) => {
-    const p = THEME_PRESETS.find((x) => x.id === id);
-    if (!p) return;
-    const { id: _i, name: _n, emoji: _e, ...conf } = p;
+  const applyPreset = (p: ThemePreset) => {
+    const { id: _i, name: _n, description: _d, ...conf } = p;
     apply(conf);
     notify(`Tema "${p.name}" aplicado.`, "success");
   };
   const set = (patch: Partial<SiteThemeConfig>) => setCfg((c) => ({ ...c, preset: "custom", ...patch }));
 
+  const currentTone = SURFACE_TONES.find((t) => t.hue === cfg.surfaceHue && t.sat === cfg.surfaceSat);
   const field = "w-full text-xs px-2.5 py-2 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg text-gray-800 dark:text-zinc-100";
 
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-2">Temas sazonais</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        <h3 className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-0.5">Edições sazonais</h3>
+        <p className="text-[11px] text-gray-400 dark:text-zinc-500 mb-2.5">
+          Cada edição redefine a paleta completa da interface — cor de destaque e tom das superfícies — mantendo contraste e hierarquia.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
           {THEME_PRESETS.map((p) => (
-            <button key={p.id} onClick={() => applyPreset(p.id)}
-              className={`rounded-xl border p-3 text-center cursor-pointer transition-all ${cfg.preset === p.id ? "border-sky-400 bg-sky-500/10" : "border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-sky-300"}`}>
-              <div className="text-2xl">{p.emoji}</div>
-              <p className="text-xs font-bold text-gray-800 dark:text-zinc-100 mt-1">{p.name}</p>
+            <button
+              key={p.id}
+              onClick={() => applyPreset(p)}
+              className={`rounded-2xl border text-left overflow-hidden cursor-pointer transition-all ${
+                cfg.preset === p.id
+                  ? "border-sky-500 ring-2 ring-sky-500/25"
+                  : "border-gray-200 dark:border-zinc-800 hover:border-sky-400/60"
+              }`}
+            >
+              <ThemePreview accent={p.accent} hue={p.surfaceHue} sat={p.surfaceSat} from={p.bannerFrom} to={p.bannerTo} />
+              <div className="p-3 bg-white dark:bg-zinc-900">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-bold text-gray-800 dark:text-zinc-100">{p.name}</p>
+                  {cfg.preset === p.id && (
+                    <span className="shrink-0 w-4 h-4 rounded-full bg-sky-500 flex items-center justify-center">
+                      <Check className="w-2.5 h-2.5 text-white" />
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] text-gray-400 dark:text-zinc-500 mt-0.5 leading-snug">{p.description}</p>
+              </div>
             </button>
           ))}
         </div>
@@ -481,50 +536,52 @@ const Appearance: React.FC<{ notify: (m: string, t?: any) => void }> = ({ notify
             <input value={cfg.title} onChange={(e) => set({ title: e.target.value })} className={field} />
           </div>
           <div>
-            <label className="block text-[10px] text-gray-400 mb-1">Ícone do site (emoji)</label>
-            <input value={cfg.favicon} onChange={(e) => set({ favicon: e.target.value })} placeholder="Ex: 🚀" className={field} maxLength={4} />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="block text-[10px] text-gray-400 mb-1">Texto do banner (vazio = sem banner)</label>
-            <input value={cfg.banner} onChange={(e) => set({ banner: e.target.value })} placeholder="Ex: 🎉 Promoção de lançamento!" className={field} />
-          </div>
-          <div>
-            <label className="block text-[10px] text-gray-400 mb-1">Cor de destaque</label>
-            <input type="color" value={cfg.accent} onChange={(e) => set({ accent: e.target.value })} className="w-full h-9 rounded-lg border border-gray-200 dark:border-zinc-700 bg-transparent cursor-pointer" />
-          </div>
-          <div>
-            <label className="block text-[10px] text-gray-400 mb-1">Decoração</label>
-            <select value={cfg.decor} onChange={(e) => set({ decor: e.target.value as any })} className={field + " cursor-pointer"}>
-              <option value="none">Nenhuma</option>
-              <option value="snow">Neve ❄️</option>
-              <option value="bats">Morcegos 🦇</option>
-              <option value="confetti">Confete 🎊</option>
-              <option value="hearts">Corações ❤️</option>
+            <label className="block text-[10px] text-gray-400 mb-1">Tom das superfícies</label>
+            <select
+              value={currentTone?.id ?? "custom"}
+              onChange={(e) => {
+                const tone = SURFACE_TONES.find((t) => t.id === e.target.value);
+                if (tone) set({ surfaceHue: tone.hue, surfaceSat: tone.sat });
+              }}
+              className={field + " cursor-pointer"}
+            >
+              {!currentTone && <option value="custom">Personalizado</option>}
+              {SURFACE_TONES.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
             </select>
           </div>
-          <div>
-            <label className="block text-[10px] text-gray-400 mb-1">Banner: cor inicial</label>
-            <input type="color" value={cfg.bannerFrom} onChange={(e) => set({ bannerFrom: e.target.value })} className="w-full h-9 rounded-lg border border-gray-200 dark:border-zinc-700 bg-transparent cursor-pointer" />
+          <div className="sm:col-span-2">
+            <label className="block text-[10px] text-gray-400 mb-1">Mensagem do banner (vazio = sem banner)</label>
+            <input value={cfg.banner} onChange={(e) => set({ banner: e.target.value })} placeholder="Ex: Novidades chegando esta semana." className={field} />
           </div>
           <div>
-            <label className="block text-[10px] text-gray-400 mb-1">Banner: cor final</label>
-            <input type="color" value={cfg.bannerTo} onChange={(e) => set({ bannerTo: e.target.value })} className="w-full h-9 rounded-lg border border-gray-200 dark:border-zinc-700 bg-transparent cursor-pointer" />
+            <label className="block text-[10px] text-gray-400 mb-1">Cor de destaque (retinge toda a interface)</label>
+            <input type="color" value={cfg.accent} onChange={(e) => set({ accent: e.target.value })} className="w-full h-9 rounded-lg border border-gray-200 dark:border-zinc-700 bg-transparent cursor-pointer" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[10px] text-gray-400 mb-1">Banner: cor inicial</label>
+              <input type="color" value={cfg.bannerFrom} onChange={(e) => set({ bannerFrom: e.target.value })} className="w-full h-9 rounded-lg border border-gray-200 dark:border-zinc-700 bg-transparent cursor-pointer" />
+            </div>
+            <div>
+              <label className="block text-[10px] text-gray-400 mb-1">Banner: cor final</label>
+              <input type="color" value={cfg.bannerTo} onChange={(e) => set({ bannerTo: e.target.value })} className="w-full h-9 rounded-lg border border-gray-200 dark:border-zinc-700 bg-transparent cursor-pointer" />
+            </div>
           </div>
         </div>
 
-        {/* Preview do banner */}
-        {cfg.banner && (
-          <div className="pt-1">
-            <p className="text-[10px] text-gray-400 mb-1">Prévia do banner</p>
-            <div className="inline-flex items-center px-4 py-2 rounded-full text-white text-xs font-semibold shadow" style={{ background: `linear-gradient(90deg, ${cfg.bannerFrom}, ${cfg.bannerTo})` }}>
-              {cfg.banner}
-            </div>
+        {/* Prévia ao vivo da personalização */}
+        <div className="pt-1">
+          <p className="text-[10px] text-gray-400 mb-1.5">Prévia</p>
+          <div className="rounded-xl border border-gray-200 dark:border-zinc-800 overflow-hidden max-w-sm">
+            <ThemePreview accent={cfg.accent} hue={cfg.surfaceHue} sat={cfg.surfaceSat} from={cfg.bannerFrom} to={cfg.bannerTo} />
           </div>
-        )}
+        </div>
 
         <div className="flex items-center gap-2 pt-1">
           <button onClick={() => { apply({ ...cfg, preset: "custom" }); notify("Personalização aplicada.", "success"); }}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-violet-500 to-sky-500 text-white text-xs font-bold cursor-pointer">
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold cursor-pointer transition-colors">
             <Check className="w-4 h-4" /> Aplicar
           </button>
           <button onClick={() => { apply({ ...DEFAULT_THEME }); notify("Tema restaurado ao padrão.", "info"); }}
@@ -533,7 +590,7 @@ const Appearance: React.FC<{ notify: (m: string, t?: any) => void }> = ({ notify
           </button>
         </div>
       </div>
-      <p className="text-[10px] text-gray-400 dark:text-zinc-600">O tema é aplicado no seu navegador. Para valer para todos os usuários (global), sincronize esta configuração pelo servidor/Firestore.</p>
+      <p className="text-[10px] text-gray-400 dark:text-zinc-600">Em modo cloud, o tema aplicado aqui é sincronizado para todos os usuários; em modo demo, vale apenas neste navegador.</p>
     </div>
   );
 };

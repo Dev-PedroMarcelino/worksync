@@ -38,7 +38,8 @@ import {
   Search,
   LayoutTemplate,
   BarChart3,
-  Crown
+  Crown,
+  Lightbulb
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import AiAssistantModal from "./AiAssistantModal";
@@ -1404,7 +1405,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
                       {activeDueTasks.length > 0 && (
                         <div className="p-1">
                           <span className="px-3 py-2 text-[9px] font-bold text-gray-400 dark:text-zinc-500 uppercase tracking-wider block">
-                            Tarefas para Hoje 📅
+                            Tarefas para hoje
                           </span>
                           <div className="space-y-1">
                             {activeDueTasks.map((t) => (
@@ -1529,7 +1530,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
                         {groupTasksAlerts.length > 0 && (
                           <div className="p-1">
                             <span className="px-3 py-2 text-[9px] font-bold text-gray-400 dark:text-zinc-500 uppercase tracking-wider block">
-                              Prazos do Grupo 📅
+                              Prazos do grupo
                             </span>
                             <div className="space-y-1">
                               {groupTasksAlerts.map((t) => (
@@ -1605,7 +1606,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
                   title="Adicionar ou remover participantes deste subgrupo privado"
                 >
                   <Users className="w-4 h-4" />
-                  <span className="hidden sm:inline">Participantes 🔒</span>
+                  <span className="hidden sm:inline">Participantes</span>
                 </button>
               )}
 
@@ -2154,7 +2155,7 @@ const InstallPWABanner: React.FC = () => {
                 <li>Toque em <strong>Adicionar</strong> no canto superior direito do Safari.</li>
               </ol>
               <div className="bg-sky-500/10 border border-sky-500/20 rounded-xl p-3 text-[10px] text-sky-600 dark:text-sky-400 leading-normal flex items-start gap-2 mb-4">
-                <span>💡</span>
+                <Lightbulb className="w-3.5 h-3.5 shrink-0 mt-px" />
                 <span><strong>Atenção:</strong> No iOS, as notificações do sistema só funcionarão após adicionar o aplicativo à sua Tela de Início e abri-lo por lá!</span>
               </div>
               <div className="flex justify-end">

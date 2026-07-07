@@ -125,7 +125,7 @@ const eventToICS = (ev: CalendarEvent): ICSInput => ({
 });
 const taskToICS = (t: Task): ICSInput => ({
   uid: t.id,
-  title: `📋 ${t.title}`,
+  title: t.title,
   date: t.dueDate as string,
   allDay: true,
   description: t.description,

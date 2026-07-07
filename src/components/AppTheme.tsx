@@ -3,53 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useMemo, useState } from "react";
-import { X } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { X, Megaphone } from "lucide-react";
 import { loadSiteTheme, applySiteTheme, fetchCloudTheme, SITE_THEME_EVENT } from "../services/siteTheme";
-import type { SiteThemeConfig, DecorKind } from "../config/themes";
+import type { SiteThemeConfig } from "../config/themes";
 
-const DECOR_EMOJI: Record<Exclude<DecorKind, "none">, string[]> = {
-  snow: ["❄️", "❄", "🌨️"],
-  bats: ["🦇", "🕸️", "🎃"],
-  confetti: ["🎊", "🎉", "🌽", "🎈"],
-  hearts: ["❤️", "💕", "💗"],
-};
-
-/** Overlay decorativo com emojis caindo (não bloqueia cliques). */
-const Decorations: React.FC<{ decor: DecorKind }> = ({ decor }) => {
-  const items = useMemo(() => {
-    if (decor === "none") return [];
-    const pool = DECOR_EMOJI[decor];
-    return Array.from({ length: 16 }, (_, i) => ({
-      emoji: pool[i % pool.length],
-      left: (i * 61) % 100, // distribuição determinística ao longo da largura
-      delay: (i % 8) * 0.9,
-      duration: 6 + (i % 6),
-      size: 14 + (i % 4) * 6,
-    }));
-  }, [decor]);
-
-  if (decor === "none") return null;
-  return (
-    <div className="fixed inset-0 z-[45] pointer-events-none overflow-hidden" aria-hidden>
-      {items.map((it, i) => (
-        <span
-          key={i}
-          className="absolute top-0 ws-fall"
-          style={{
-            left: `${it.left}%`,
-            fontSize: it.size,
-            animationDelay: `${it.delay}s`,
-            animationDuration: `${it.duration}s`,
-          }}
-        >
-          {it.emoji}
-        </span>
-      ))}
-    </div>
-  );
-};
-
+/**
+ * Aplica o tema ativo (tokens de cor globais) e renderiza o banner de
+ * campanha quando configurado. O retingimento da interface acontece via
+ * variáveis CSS em applySiteTheme — sem overlays nem decorações.
+ */
 const AppTheme: React.FC = () => {
   const [cfg, setCfg] = useState<SiteThemeConfig>(() => loadSiteTheme());
   const [bannerClosed, setBannerClosed] = useState(false);
@@ -75,39 +38,33 @@ const AppTheme: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  if (!cfg.banner || bannerClosed) return null;
+
   return (
-    <>
-      {/* Animação das decorações (injeta os keyframes uma vez) */}
-      <style>{`
-        @keyframes ws-fall {
-          0% { transform: translateY(-12vh) rotate(0deg); opacity: 0; }
-          8% { opacity: 0.95; }
-          100% { transform: translateY(112vh) rotate(360deg); opacity: 0.95; }
-        }
-        .ws-fall { animation-name: ws-fall; animation-timing-function: linear; animation-iteration-count: infinite; }
-      `}</style>
-
-      <Decorations decor={cfg.decor} />
-
-      {/* Banner de campanha/sazonal (flutuante, inferior, dispensável) */}
-      {cfg.banner && !bannerClosed && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[55] max-w-[92vw] pointer-events-auto">
-          <div
-            className="flex items-center gap-3 pl-4 pr-2 py-2.5 rounded-full shadow-lg text-white text-xs sm:text-sm font-semibold"
-            style={{ background: `linear-gradient(90deg, ${cfg.bannerFrom}, ${cfg.bannerTo})` }}
-          >
-            <span className="truncate">{cfg.banner}</span>
-            <button
-              onClick={() => setBannerClosed(true)}
-              className="shrink-0 p-1 rounded-full hover:bg-white/20 transition-colors cursor-pointer"
-              title="Fechar"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-    </>
+    <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[55] max-w-[92vw] pointer-events-auto animate-fade-in">
+      <div className="relative flex items-center gap-3 pl-3.5 pr-1.5 py-2 rounded-2xl bg-zinc-900/95 backdrop-blur-xl border border-white/10 shadow-2xl overflow-hidden">
+        {/* Fio de gradiente no topo — assinatura visual da campanha */}
+        <span
+          aria-hidden
+          className="absolute inset-x-0 top-0 h-[2px]"
+          style={{ background: `linear-gradient(90deg, ${cfg.bannerFrom}, ${cfg.bannerTo})` }}
+        />
+        <span
+          className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center"
+          style={{ background: `linear-gradient(135deg, ${cfg.bannerFrom}, ${cfg.bannerTo})` }}
+        >
+          <Megaphone className="w-3.5 h-3.5 text-white" />
+        </span>
+        <span className="truncate text-xs sm:text-sm font-medium text-zinc-100">{cfg.banner}</span>
+        <button
+          onClick={() => setBannerClosed(true)}
+          className="shrink-0 p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+          title="Fechar"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
   );
 };
 

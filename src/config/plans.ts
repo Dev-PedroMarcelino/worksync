@@ -19,8 +19,6 @@ export interface PlanFrame {
   glow: string;
   /** Cores do selo do plano. */
   badge: string;
-  /** Emoji/gema representando o plano. */
-  gem: string;
 }
 
 export interface PlanDef {
@@ -63,7 +61,6 @@ export const PLANS: Record<PlanId, PlanDef> = {
       ring: "from-slate-200 via-gray-100 to-slate-400",
       glow: "shadow-[0_0_8px_rgba(148,163,184,0.55)]",
       badge: "bg-slate-400/15 text-slate-500 dark:text-slate-300",
-      gem: "🥈",
     },
     features: [
       "Moldura Prata no seu avatar",
@@ -84,7 +81,6 @@ export const PLANS: Record<PlanId, PlanDef> = {
       ring: "from-amber-300 via-yellow-400 to-amber-600",
       glow: "shadow-[0_0_10px_rgba(245,158,11,0.6)]",
       badge: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
-      gem: "🥇",
     },
     features: [
       "Moldura Ouro (brilhante) no avatar",
@@ -105,7 +101,6 @@ export const PLANS: Record<PlanId, PlanDef> = {
       ring: "from-cyan-200 via-sky-300 to-violet-300",
       glow: "shadow-[0_0_14px_rgba(56,189,248,0.7)]",
       badge: "bg-sky-500/15 text-sky-600 dark:text-sky-300",
-      gem: "💎",
     },
     features: [
       "Moldura Diamante (cintilante) no avatar",
@@ -127,7 +122,6 @@ export const PLANS: Record<PlanId, PlanDef> = {
       ring: "from-emerald-300 via-green-400 to-emerald-600",
       glow: "shadow-[0_0_12px_rgba(16,185,129,0.65)]",
       badge: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
-      gem: "🟢",
     },
     features: [
       "Moldura Esmeralda para todo o time",
