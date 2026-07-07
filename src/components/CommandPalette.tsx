@@ -82,13 +82,19 @@ const CommandPalette: React.FC = () => {
     };
     const onOpen = () => setOpen(true);
     const onPlans = () => setPlansOpen(true);
+    const onTemplates = () => setTplOpen(true);
+    const onDashboard = () => setDashOpen(true);
     window.addEventListener("keydown", onKey);
     window.addEventListener("open-command-palette", onOpen);
     window.addEventListener("open-plans", onPlans);
+    window.addEventListener("open-templates", onTemplates);
+    window.addEventListener("open-dashboard", onDashboard);
     return () => {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("open-command-palette", onOpen);
       window.removeEventListener("open-plans", onPlans);
+      window.removeEventListener("open-templates", onTemplates);
+      window.removeEventListener("open-dashboard", onDashboard);
     };
   }, []);
 
