@@ -421,3 +421,46 @@ export async function generatePlanFromText(text: string): Promise<AiPlan> {
 
   return localExtract(clean, today);
 }
+
+/**
+ * Quebra uma tarefa em subtarefas (checklist) acionáveis. Usa a IA quando
+ * configurada; senão devolve um esqueleto genérico útil.
+ */
+export async function generateChecklist(title: string, description = ""): Promise<string[]> {
+  const clean = (title || "").trim();
+  if (!clean) return [];
+
+  if (isAiConfigured()) {
+    try {
+      const { GoogleGenAI, Type } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey: AI_API_KEY });
+      const responseSchema = {
+        type: Type.OBJECT,
+        properties: { steps: { type: Type.ARRAY, items: { type: Type.STRING } } },
+        required: ["steps"],
+      };
+      const res: any = await ai.models.generateContent({
+        model: AI_MODEL,
+        contents: `Tarefa: ${clean}${description ? "\nDetalhes: " + description : ""}`,
+        config: {
+          systemInstruction:
+            "Quebre a tarefa em 3 a 6 subtarefas objetivas e acionáveis, em português do Brasil. " +
+            "Cada passo curto, começando por um verbo no infinitivo. Não numere.",
+          responseMimeType: "application/json",
+          responseSchema,
+          temperature: 0.3,
+        },
+      });
+      const parsed = JSON.parse((res?.text ?? "").trim());
+      if (Array.isArray(parsed.steps)) {
+        const steps = parsed.steps.map((s: any) => String(s).trim()).filter(Boolean).slice(0, 8);
+        if (steps.length) return steps;
+      }
+    } catch (err) {
+      console.warn("[aiAssistant] Falha ao gerar subtarefas, usando esqueleto local:", err);
+    }
+  }
+
+  // Fallback local: esqueleto genérico de execução.
+  return ["Planejar e organizar", "Executar a parte principal", "Revisar o resultado", "Concluir e comunicar"];
+}

@@ -112,7 +112,7 @@ interface AppContextType {
   getSubgroupPermissions: (subgroupId: string) => Promise<{ [userId: string]: boolean }>;
 
   // Actions - Tasks
-  createTask: (title: string, description: string, priority: "low" | "medium" | "high", dueDate: string, assignedTo?: string, checklistTexts?: string[], tags?: string[], status?: Task["status"]) => Promise<void>;
+  createTask: (title: string, description: string, priority: "low" | "medium" | "high", dueDate: string, assignedTo?: string, checklistTexts?: string[], tags?: string[], status?: Task["status"], recurrence?: Task["recurrence"]) => Promise<void>;
   toggleTaskStatus: (taskId: string) => Promise<void>;
   updateTaskFields: (taskId: string, fields: Partial<Task>) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
@@ -2510,7 +2510,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     assignedTo?: string,
     checklistTexts?: string[],
     tags?: string[],
-    status?: Task["status"]
+    status?: Task["status"],
+    recurrence?: Task["recurrence"]
   ): Promise<void> => {
     if (!currentUser) return;
     const taskId = Math.random().toString(36).substring(2, 9);
@@ -2540,6 +2541,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       assignedToName: assignedToName || "",
       tags: tags || [],
       order: Date.now(),
+      recurrence: recurrence || "none",
       checklist: checkItems,
       creatorId: currentUser.id,
       createdAt: new Date().toISOString(),
@@ -2631,6 +2633,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } catch (e) {
         handleFirestoreError(e, OperationType.UPDATE, `tasks/${taskId}`);
       }
+    }
+
+    // Tarefa recorrente: ao concluir, agenda automaticamente a próxima ocorrência.
+    if (nextStatus === "completed" && taskToToggle.recurrence && taskToToggle.recurrence !== "none") {
+      const todayISO = new Date().toISOString().slice(0, 10);
+      const baseISO = taskToToggle.dueDate && taskToToggle.dueDate >= todayISO ? taskToToggle.dueDate : todayISO;
+      const d = new Date(baseISO + "T00:00:00");
+      if (taskToToggle.recurrence === "daily") d.setDate(d.getDate() + 1);
+      else if (taskToToggle.recurrence === "weekly") d.setDate(d.getDate() + 7);
+      else if (taskToToggle.recurrence === "monthly") d.setMonth(d.getMonth() + 1);
+      const nextDue = d.toISOString().slice(0, 10);
+      await createTask(
+        taskToToggle.title,
+        taskToToggle.description,
+        taskToToggle.priority,
+        nextDue,
+        taskToToggle.assignedTo || undefined,
+        taskToToggle.checklist.map((c) => c.text),
+        taskToToggle.tags || [],
+        "pending",
+        taskToToggle.recurrence
+      );
     }
   };
 
