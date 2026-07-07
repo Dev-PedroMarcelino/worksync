@@ -33,9 +33,11 @@ import {
   Upload,
   Image,
   Settings,
-  Download
+  Download,
+  Sparkles
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import AiAssistantModal from "./AiAssistantModal";
 import { TaskBoard } from "./TaskBoard";
 import { WhiteboardCanvas } from "./WhiteboardCanvas";
 import { NotebooksList } from "./NotebooksList";
@@ -442,6 +444,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
 
   // States for user profile and chat DM
   const [selectedProfileMember, setSelectedProfileMember] = useState<GroupMember | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
 
   const isPersonal = activeTab === "personal";
   const isGroupLeader = !isPersonal && selectedGroup && currentUser && selectedGroup.creatorId === currentUser.id;
@@ -1876,6 +1879,20 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
       )}
     </div>
       </main>
+
+      {/* ASSISTENTE IA — botão flutuante (voz -> tarefas + compromissos) */}
+      {(isPersonal || selectedSubgroup) && (activeModule === "tasks" || activeModule === "calendar") && (
+        <button
+          id="ai-assistant-fab"
+          onClick={() => setAiOpen(true)}
+          className="fixed bottom-5 right-5 sm:bottom-7 sm:right-7 z-40 flex items-center gap-2 pl-3.5 pr-4 py-3 rounded-full bg-gradient-to-r from-violet-500 to-sky-500 text-white shadow-lg shadow-sky-500/25 hover:scale-105 active:scale-95 transition-transform cursor-pointer"
+          title="Organizar por voz com IA"
+        >
+          <Sparkles className="w-5 h-5" />
+          <span className="text-sm font-semibold hidden sm:inline">Assistente IA</span>
+        </button>
+      )}
+      <AiAssistantModal open={aiOpen} onClose={() => setAiOpen(false)} />
 
       {/* USER PROFILE MODAL */}
       <AnimatePresence>

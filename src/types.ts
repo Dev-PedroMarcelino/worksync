@@ -12,6 +12,7 @@ export interface UserProfile {
   theme: "light" | "dark";
   createdAt: string;
   friendCode?: string;
+  plan?: "free" | "pro" | "team"; // subscription tier; undefined == "free"
 }
 
 export interface Group {
