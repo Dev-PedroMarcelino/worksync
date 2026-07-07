@@ -18,8 +18,10 @@ import { THEME_PRESETS, DEFAULT_THEME, type SiteThemeConfig } from "../config/th
 import { loadSiteTheme, saveSiteTheme } from "../services/siteTheme";
 import {
   loadUsers, saveUsers, loadConfig, saveConfig, computeMetrics, planPrice, rid,
+  fetchCloudUsers, persistUserPatch,
   type AdminUser, type AdminConfig, type Offer, type Campaign,
 } from "../services/adminData";
+import { isDemoMode } from "../db/firebase";
 
 type Tab = "overview" | "users" | "billing" | "plans" | "campaigns" | "appearance";
 
@@ -47,29 +49,44 @@ const AdminPanel: React.FC = () => {
   const allowed = isSuperAdmin(currentUser?.email);
 
   useEffect(() => {
-    const onOpen = () => {
+    const onOpen = async () => {
       if (!isSuperAdmin(currentUser?.email)) return;
-      setUsers(loadUsers());
       setConfig(loadConfig());
       setOpen(true);
+      if (isDemoMode) {
+        setUsers(loadUsers());
+      } else {
+        try {
+          setUsers(await fetchCloudUsers());
+        } catch (e) {
+          console.error("[admin] falha ao carregar usuários", e);
+          setUsers([]);
+        }
+      }
     };
     window.addEventListener("open-admin", onOpen);
     return () => window.removeEventListener("open-admin", onOpen);
   }, [currentUser]);
 
-  const updateUsers = (next: AdminUser[]) => { setUsers(next); saveUsers(next); };
+  // Em demo, persiste a lista em localStorage; em cloud, cada ação grava no doc do usuário.
+  const updateUsers = (next: AdminUser[]) => { setUsers(next); if (isDemoMode) saveUsers(next); };
   const updateConfig = (next: AdminConfig) => { setConfig(next); saveConfig(next); };
+  const persist = (id: string, patch: Partial<AdminUser>) => { if (!isDemoMode) persistUserPatch(id, patch).catch((e) => console.error("[admin] persist", e)); };
 
   const metrics = useMemo(() => computeMetrics(users), [users]);
 
   if (!allowed) return null;
 
-  const setUserPlan = (id: string, plan: PlanId) =>
+  const setUserPlan = (id: string, plan: PlanId) => {
     updateUsers(users.map((u) => (u.id === id ? { ...u, plan } : u)));
+    persist(id, { plan });
+  };
   const toggleBlock = (id: string) => {
-    updateUsers(users.map((u) => (u.id === id ? { ...u, blocked: !u.blocked } : u)));
     const u = users.find((x) => x.id === id);
-    if (u) notify(u.blocked ? `${u.name} desbloqueado.` : `${u.name} bloqueado.`, u.blocked ? "success" : "info");
+    const nextBlocked = !u?.blocked;
+    updateUsers(users.map((x) => (x.id === id ? { ...x, blocked: nextBlocked } : x)));
+    persist(id, { blocked: nextBlocked });
+    if (u) notify(nextBlocked ? `${u.name} bloqueado.` : `${u.name} desbloqueado.`, nextBlocked ? "info" : "success");
   };
 
   const filteredUsers = users.filter((u) =>
@@ -127,7 +144,7 @@ const AdminPanel: React.FC = () => {
                 <UsersTab
                   users={filteredUsers} search={search} setSearch={setSearch}
                   onPlan={setUserPlan} onBlock={toggleBlock}
-                  onExtend={(id, days) => updateUsers(users.map((u) => u.id === id ? { ...u, planExpiresAt: new Date(Date.now() + days * 86400000).toISOString() } : u))}
+                  onExtend={(id, days) => { const iso = new Date(Date.now() + days * 86400000).toISOString(); updateUsers(users.map((u) => u.id === id ? { ...u, planExpiresAt: iso } : u)); persist(id, { planExpiresAt: iso }); }}
                 />
               )}
               {tab === "billing" && <Billing users={users} metrics={metrics} />}

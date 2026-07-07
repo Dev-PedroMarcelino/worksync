@@ -200,6 +200,7 @@ export interface Friend {
   email: string;
   friendCode: string;
   joinedAt: string;
+  plan?: "free" | "prata" | "ouro" | "diamante" | "esmeralda"; // para moldura do avatar
 }
 
 export interface GroupNotification {

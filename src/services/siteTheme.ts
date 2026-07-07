@@ -32,6 +32,35 @@ export function saveSiteTheme(cfg: SiteThemeConfig): void {
   }
   applySiteTheme(cfg);
   window.dispatchEvent(new CustomEvent(SITE_THEME_EVENT, { detail: cfg }));
+  // Sincroniza globalmente (modo cloud) — só o super-admin tem permissão de escrita.
+  saveCloudTheme(cfg);
+}
+
+async function saveCloudTheme(cfg: SiteThemeConfig): Promise<void> {
+  try {
+    const { isDemoMode } = await import("../db/firebase");
+    if (isDemoMode) return;
+    const { db } = await import("../db/firebase");
+    const { doc, setDoc } = await import("firebase/firestore");
+    await setDoc(doc(db, "admin", "siteTheme"), cfg, { merge: true });
+  } catch {
+    /* sem permissão / offline — mantém apenas local */
+  }
+}
+
+/** Lê o tema global do Firestore (modo cloud). Retorna null se indisponível. */
+export async function fetchCloudTheme(): Promise<SiteThemeConfig | null> {
+  try {
+    const { isDemoMode } = await import("../db/firebase");
+    if (isDemoMode) return null;
+    const { db } = await import("../db/firebase");
+    const { doc, getDoc } = await import("firebase/firestore");
+    const snap = await getDoc(doc(db, "admin", "siteTheme"));
+    if (snap.exists()) return { ...DEFAULT_THEME, ...(snap.data() as SiteThemeConfig) };
+  } catch {
+    /* noop */
+  }
+  return null;
 }
 
 /** Aplica título, favicon e cor de destaque no documento. */

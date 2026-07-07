@@ -848,12 +848,9 @@ export const Navigation: React.FC<NavigationProps> = ({ onOpenProfile, isMobile,
                           : "text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800"
                       }`}
                     >
-                      <img
-                        src={friend.photoUrl}
-                        alt=""
-                        referrerPolicy="no-referrer"
-                        className="w-8 h-8 rounded-full object-cover shrink-0 border border-black/5 dark:border-white/10"
-                      />
+                      <span className="shrink-0">
+                        <PlanAvatar photoUrl={friend.photoUrl} plan={friend.plan} galaxy={isSuperAdmin(friend.email)} size={32} showGem={false} />
+                      </span>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold truncate">{friend.name}</p>
                         <p className="text-[11px] text-gray-400 dark:text-zinc-500 truncate">

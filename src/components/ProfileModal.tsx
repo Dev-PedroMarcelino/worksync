@@ -432,12 +432,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose, initialTab 
                     className="p-3 bg-zinc-50 dark:bg-zinc-800/20 border border-gray-100 dark:border-zinc-850/60 rounded-2xl flex items-center justify-between gap-3 text-xs"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <img
-                        src={friend.photoUrl}
-                        alt=""
-                        className="w-8 h-8 rounded-full border border-black/5 dark:border-white/5 object-cover"
-                        referrerPolicy="no-referrer"
-                      />
+                      <span className="shrink-0">
+                        <PlanAvatar photoUrl={friend.photoUrl} plan={friend.plan} galaxy={isSuperAdmin(friend.email)} size={32} showGem={false} />
+                      </span>
                       <div className="min-w-0">
                         <p className="font-bold text-gray-900 dark:text-zinc-100 truncate">{friend.name}</p>
                         <p className="text-[10px] text-gray-450 dark:text-zinc-500 truncate">{friend.email}</p>

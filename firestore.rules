@@ -16,6 +16,11 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    // Super-admin (Criador) — identificado pelo e-mail autenticado.
+    function isSuperAdmin() {
+      return isSignedIn() && request.auth.token.email == 'pedromarcelinoh7@gmail.com';
+    }
+
     function isValidId(id) {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
@@ -24,8 +29,26 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isSignedIn();
       allow create: if isOwner(userId) && request.resource.data.keys().hasAll(['id', 'name', 'email', 'theme', 'createdAt']) && request.resource.data.theme in ['light', 'dark'];
-      allow update: if isOwner(userId) && request.resource.data.theme in ['light', 'dark'] && request.resource.data.createdAt == resource.data.createdAt;
+      // O super-admin pode alterar qualquer usuário (plano/bloqueio/vencimento).
+      // O próprio usuário pode editar o perfil, MAS não pode mudar plan/blocked/
+      // isAdmin/planExpiresAt — esses só via super-admin (ou webhook admin do Stripe).
+      allow update: if isSuperAdmin() || (
+        isOwner(userId)
+        && request.resource.data.theme in ['light', 'dark']
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.plan == resource.data.plan
+        && request.resource.data.blocked == resource.data.blocked
+        && request.resource.data.isAdmin == resource.data.isAdmin
+        && request.resource.data.planExpiresAt == resource.data.planExpiresAt
+      );
       allow delete: if false;
+    }
+
+    // Configuração global de administração (tema do site, ofertas, campanhas).
+    // Todos leem (para aplicar o tema); só o super-admin escreve.
+    match /admin/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin();
     }
 
     // Friends and Friend Requests subcollections

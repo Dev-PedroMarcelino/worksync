@@ -204,3 +204,36 @@ export function computeMetrics(users: AdminUser[]): AdminMetrics {
 export function rid(prefix: string): string {
   return prefix + "_" + Math.random().toString(36).slice(2, 9);
 }
+
+/* ---------------- Cloud (Firestore) — só super-admin ---------------- */
+
+/** Carrega usuários reais da coleção `users` (modo cloud). */
+export async function fetchCloudUsers(): Promise<AdminUser[]> {
+  const { db } = await import("../db/firebase");
+  const { collection, getDocs } = await import("firebase/firestore");
+  const snap = await getDocs(collection(db, "users"));
+  return snap.docs.map((d) => {
+    const u = d.data() as any;
+    return {
+      id: d.id,
+      name: u.name || "(sem nome)",
+      email: u.email || "",
+      plan: (u.plan as PlanId) || "free",
+      planExpiresAt: u.planExpiresAt,
+      blocked: !!u.blocked,
+      isAdmin: !!u.isAdmin,
+      aiUsage: u.aiUsage || 0,
+      groupsCount: u.groupsCount || 0,
+      tasksCount: u.tasksCount || 0,
+      lastActive: u.lastActive || u.createdAt || new Date().toISOString(),
+      createdAt: u.createdAt || new Date().toISOString(),
+    } as AdminUser;
+  });
+}
+
+/** Grava alterações do admin no doc do usuário (modo cloud). Requer super-admin nas rules. */
+export async function persistUserPatch(userId: string, patch: Partial<AdminUser>): Promise<void> {
+  const { db } = await import("../db/firebase");
+  const { doc, updateDoc } = await import("firebase/firestore");
+  await updateDoc(doc(db, "users", userId), patch as any);
+}

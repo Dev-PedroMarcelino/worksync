@@ -192,6 +192,8 @@ export const GroupChatModule: React.FC<GroupChatModuleProps> = ({
         sub: "Espaço privado para anotações e arquivos pessoais",
         photoUrl: currentUser.photoUrl,
         showProfileBtn: false,
+        plan: currentUser.plan,
+        email: currentUser.email,
       };
     }
     
@@ -204,6 +206,8 @@ export const GroupChatModule: React.FC<GroupChatModuleProps> = ({
         photoUrl: member.photoUrl,
         showProfileBtn: true,
         memberObj: member,
+        plan: member.plan,
+        email: member.email,
       };
     }
     
@@ -215,6 +219,8 @@ export const GroupChatModule: React.FC<GroupChatModuleProps> = ({
         sub: "Amigo",
         photoUrl: friend.photoUrl,
         showProfileBtn: false,
+        plan: friend.plan,
+        email: friend.email,
       };
     }
 
@@ -247,12 +253,9 @@ export const GroupChatModule: React.FC<GroupChatModuleProps> = ({
                 <MessageCircle className="w-5 h-5" />
               </div>
             ) : (
-              <img
-                src={roomDetails.photoUrl}
-                alt=""
-                referrerPolicy="no-referrer"
-                className="w-10 h-10 rounded-full object-cover shrink-0 border border-gray-200 dark:border-zinc-800"
-              />
+              <span className="shrink-0">
+                <PlanAvatar photoUrl={roomDetails.photoUrl} plan={(roomDetails as any).plan} galaxy={isSuperAdmin((roomDetails as any).email)} size={40} showGem={false} />
+              </span>
             )}
 
             <div className="truncate ml-1">

@@ -5,7 +5,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
-import { loadSiteTheme, applySiteTheme, SITE_THEME_EVENT } from "../services/siteTheme";
+import { loadSiteTheme, applySiteTheme, fetchCloudTheme, SITE_THEME_EVENT } from "../services/siteTheme";
 import type { SiteThemeConfig, DecorKind } from "../config/themes";
 
 const DECOR_EMOJI: Record<Exclude<DecorKind, "none">, string[]> = {
@@ -56,6 +56,14 @@ const AppTheme: React.FC = () => {
 
   useEffect(() => {
     applySiteTheme(cfg);
+    // Em modo cloud, o tema global (definido pelo admin) prevalece sobre o local.
+    fetchCloudTheme().then((remote) => {
+      if (remote) {
+        setCfg(remote);
+        applySiteTheme(remote);
+        setBannerClosed(false);
+      }
+    });
     const onChange = (e: Event) => {
       const detail = (e as CustomEvent).detail as SiteThemeConfig | undefined;
       const next = detail || loadSiteTheme();
