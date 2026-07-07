@@ -11,6 +11,8 @@ import { AuthScreen } from "./components/AuthScreen";
 import { Navigation } from "./components/Navigation";
 import { Workspace } from "./components/Workspace";
 import { ProfileModal } from "./components/ProfileModal";
+import CommandPalette from "./components/CommandPalette";
+import DeadlineReminders from "./components/DeadlineReminders";
 import { motion, AnimatePresence } from "motion/react";
 import { CheckSquare, MessageSquare, X } from "lucide-react";
 
@@ -124,6 +126,10 @@ function MainLayout() {
       <Workspace onOpenMobileSidebar={() => setMobileSidebarOpen(true)} onOpenProfile={openProfileModal} />
 
       {showProfile && <ProfileModal initialTab={profileTab} onClose={() => setShowProfile(false)} />}
+
+      {/* Overlays globais: paleta de comandos (Cmd+K) e vigia de prazos */}
+      <CommandPalette />
+      <DeadlineReminders />
 
       <ToastContainer />
     </div>
