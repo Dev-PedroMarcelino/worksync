@@ -7,19 +7,23 @@ import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Shield, Users, CreditCard, Crown, Megaphone, X, Search, Ban, Check,
-  TrendingUp, CalendarClock, Plus, Trash2, Star, BarChart3, Percent, ShieldCheck, Unlock,
+  TrendingUp, CalendarClock, Plus, Trash2, Star, BarChart3, Percent, ShieldCheck, Unlock, Palette,
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
 import { isSuperAdmin } from "../config/admin";
 import { PLANS, PLAN_ORDER, type PlanId } from "../config/plans";
 import PlanAvatar from "./PlanAvatar";
+import { THEME_PRESETS, DEFAULT_THEME, type SiteThemeConfig } from "../config/themes";
+import { loadSiteTheme, saveSiteTheme } from "../services/siteTheme";
 import {
   loadUsers, saveUsers, loadConfig, saveConfig, computeMetrics, planPrice, rid,
+  fetchCloudUsers, persistUserPatch,
   type AdminUser, type AdminConfig, type Offer, type Campaign,
 } from "../services/adminData";
+import { isDemoMode } from "../db/firebase";
 
-type Tab = "overview" | "users" | "billing" | "plans" | "campaigns";
+type Tab = "overview" | "users" | "billing" | "plans" | "campaigns" | "appearance";
 
 const BRL = (n: number) => "R$ " + n.toLocaleString("pt-BR");
 const fmtDate = (iso?: string) => (iso ? new Date(iso).toLocaleDateString("pt-BR") : "—");
@@ -30,6 +34,7 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: "billing", label: "Faturamento", icon: <CreditCard className="w-4 h-4" /> },
   { id: "plans", label: "Planos & Ofertas", icon: <Crown className="w-4 h-4" /> },
   { id: "campaigns", label: "Campanhas", icon: <Megaphone className="w-4 h-4" /> },
+  { id: "appearance", label: "Aparência", icon: <Palette className="w-4 h-4" /> },
 ];
 
 const AdminPanel: React.FC = () => {
@@ -44,29 +49,44 @@ const AdminPanel: React.FC = () => {
   const allowed = isSuperAdmin(currentUser?.email);
 
   useEffect(() => {
-    const onOpen = () => {
+    const onOpen = async () => {
       if (!isSuperAdmin(currentUser?.email)) return;
-      setUsers(loadUsers());
       setConfig(loadConfig());
       setOpen(true);
+      if (isDemoMode) {
+        setUsers(loadUsers());
+      } else {
+        try {
+          setUsers(await fetchCloudUsers());
+        } catch (e) {
+          console.error("[admin] falha ao carregar usuários", e);
+          setUsers([]);
+        }
+      }
     };
     window.addEventListener("open-admin", onOpen);
     return () => window.removeEventListener("open-admin", onOpen);
   }, [currentUser]);
 
-  const updateUsers = (next: AdminUser[]) => { setUsers(next); saveUsers(next); };
+  // Em demo, persiste a lista em localStorage; em cloud, cada ação grava no doc do usuário.
+  const updateUsers = (next: AdminUser[]) => { setUsers(next); if (isDemoMode) saveUsers(next); };
   const updateConfig = (next: AdminConfig) => { setConfig(next); saveConfig(next); };
+  const persist = (id: string, patch: Partial<AdminUser>) => { if (!isDemoMode) persistUserPatch(id, patch).catch((e) => console.error("[admin] persist", e)); };
 
   const metrics = useMemo(() => computeMetrics(users), [users]);
 
   if (!allowed) return null;
 
-  const setUserPlan = (id: string, plan: PlanId) =>
+  const setUserPlan = (id: string, plan: PlanId) => {
     updateUsers(users.map((u) => (u.id === id ? { ...u, plan } : u)));
+    persist(id, { plan });
+  };
   const toggleBlock = (id: string) => {
-    updateUsers(users.map((u) => (u.id === id ? { ...u, blocked: !u.blocked } : u)));
     const u = users.find((x) => x.id === id);
-    if (u) notify(u.blocked ? `${u.name} desbloqueado.` : `${u.name} bloqueado.`, u.blocked ? "success" : "info");
+    const nextBlocked = !u?.blocked;
+    updateUsers(users.map((x) => (x.id === id ? { ...x, blocked: nextBlocked } : x)));
+    persist(id, { blocked: nextBlocked });
+    if (u) notify(nextBlocked ? `${u.name} bloqueado.` : `${u.name} desbloqueado.`, nextBlocked ? "info" : "success");
   };
 
   const filteredUsers = users.filter((u) =>
@@ -124,12 +144,13 @@ const AdminPanel: React.FC = () => {
                 <UsersTab
                   users={filteredUsers} search={search} setSearch={setSearch}
                   onPlan={setUserPlan} onBlock={toggleBlock}
-                  onExtend={(id, days) => updateUsers(users.map((u) => u.id === id ? { ...u, planExpiresAt: new Date(Date.now() + days * 86400000).toISOString() } : u))}
+                  onExtend={(id, days) => { const iso = new Date(Date.now() + days * 86400000).toISOString(); updateUsers(users.map((u) => u.id === id ? { ...u, planExpiresAt: iso } : u)); persist(id, { planExpiresAt: iso }); }}
                 />
               )}
               {tab === "billing" && <Billing users={users} metrics={metrics} />}
               {tab === "plans" && <PlansOffers config={config} onChange={updateConfig} notify={notify} />}
               {tab === "campaigns" && <Campaigns config={config} onChange={updateConfig} notify={notify} />}
+              {tab === "appearance" && <Appearance notify={notify} />}
             </div>
           </motion.div>
         </motion.div>
@@ -414,6 +435,105 @@ const Campaigns: React.FC<{ config: AdminConfig; onChange: (c: AdminConfig) => v
           </div>
         ))}
       </div>
+    </div>
+  );
+};
+
+/* ------------------------------ Appearance / Temas ------------------------------ */
+const Appearance: React.FC<{ notify: (m: string, t?: any) => void }> = ({ notify }) => {
+  const [cfg, setCfg] = useState<SiteThemeConfig>(() => loadSiteTheme());
+
+  const apply = (next: SiteThemeConfig) => {
+    setCfg(next);
+    saveSiteTheme(next);
+  };
+  const applyPreset = (id: string) => {
+    const p = THEME_PRESETS.find((x) => x.id === id);
+    if (!p) return;
+    const { id: _i, name: _n, emoji: _e, ...conf } = p;
+    apply(conf);
+    notify(`Tema "${p.name}" aplicado.`, "success");
+  };
+  const set = (patch: Partial<SiteThemeConfig>) => setCfg((c) => ({ ...c, preset: "custom", ...patch }));
+
+  const field = "w-full text-xs px-2.5 py-2 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg text-gray-800 dark:text-zinc-100";
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h3 className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-2">Temas sazonais</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+          {THEME_PRESETS.map((p) => (
+            <button key={p.id} onClick={() => applyPreset(p.id)}
+              className={`rounded-xl border p-3 text-center cursor-pointer transition-all ${cfg.preset === p.id ? "border-sky-400 bg-sky-500/10" : "border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-sky-300"}`}>
+              <div className="text-2xl">{p.emoji}</div>
+              <p className="text-xs font-bold text-gray-800 dark:text-zinc-100 mt-1">{p.name}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 space-y-3">
+        <h3 className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Personalizado</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-[10px] text-gray-400 mb-1">Título do site</label>
+            <input value={cfg.title} onChange={(e) => set({ title: e.target.value })} className={field} />
+          </div>
+          <div>
+            <label className="block text-[10px] text-gray-400 mb-1">Ícone do site (emoji)</label>
+            <input value={cfg.favicon} onChange={(e) => set({ favicon: e.target.value })} placeholder="Ex: 🚀" className={field} maxLength={4} />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="block text-[10px] text-gray-400 mb-1">Texto do banner (vazio = sem banner)</label>
+            <input value={cfg.banner} onChange={(e) => set({ banner: e.target.value })} placeholder="Ex: 🎉 Promoção de lançamento!" className={field} />
+          </div>
+          <div>
+            <label className="block text-[10px] text-gray-400 mb-1">Cor de destaque</label>
+            <input type="color" value={cfg.accent} onChange={(e) => set({ accent: e.target.value })} className="w-full h-9 rounded-lg border border-gray-200 dark:border-zinc-700 bg-transparent cursor-pointer" />
+          </div>
+          <div>
+            <label className="block text-[10px] text-gray-400 mb-1">Decoração</label>
+            <select value={cfg.decor} onChange={(e) => set({ decor: e.target.value as any })} className={field + " cursor-pointer"}>
+              <option value="none">Nenhuma</option>
+              <option value="snow">Neve ❄️</option>
+              <option value="bats">Morcegos 🦇</option>
+              <option value="confetti">Confete 🎊</option>
+              <option value="hearts">Corações ❤️</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-[10px] text-gray-400 mb-1">Banner: cor inicial</label>
+            <input type="color" value={cfg.bannerFrom} onChange={(e) => set({ bannerFrom: e.target.value })} className="w-full h-9 rounded-lg border border-gray-200 dark:border-zinc-700 bg-transparent cursor-pointer" />
+          </div>
+          <div>
+            <label className="block text-[10px] text-gray-400 mb-1">Banner: cor final</label>
+            <input type="color" value={cfg.bannerTo} onChange={(e) => set({ bannerTo: e.target.value })} className="w-full h-9 rounded-lg border border-gray-200 dark:border-zinc-700 bg-transparent cursor-pointer" />
+          </div>
+        </div>
+
+        {/* Preview do banner */}
+        {cfg.banner && (
+          <div className="pt-1">
+            <p className="text-[10px] text-gray-400 mb-1">Prévia do banner</p>
+            <div className="inline-flex items-center px-4 py-2 rounded-full text-white text-xs font-semibold shadow" style={{ background: `linear-gradient(90deg, ${cfg.bannerFrom}, ${cfg.bannerTo})` }}>
+              {cfg.banner}
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 pt-1">
+          <button onClick={() => { apply({ ...cfg, preset: "custom" }); notify("Personalização aplicada.", "success"); }}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-violet-500 to-sky-500 text-white text-xs font-bold cursor-pointer">
+            <Check className="w-4 h-4" /> Aplicar
+          </button>
+          <button onClick={() => { apply({ ...DEFAULT_THEME }); notify("Tema restaurado ao padrão.", "info"); }}
+            className="px-3 py-2 rounded-lg text-xs font-semibold text-gray-500 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800 cursor-pointer">
+            Restaurar padrão
+          </button>
+        </div>
+      </div>
+      <p className="text-[10px] text-gray-400 dark:text-zinc-600">O tema é aplicado no seu navegador. Para valer para todos os usuários (global), sincronize esta configuração pelo servidor/Firestore.</p>
     </div>
   );
 };

@@ -42,6 +42,8 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import AiAssistantModal from "./AiAssistantModal";
+import PlanAvatar from "./PlanAvatar";
+import { isSuperAdmin } from "../config/admin";
 import { TaskBoard } from "./TaskBoard";
 import { WhiteboardCanvas } from "./WhiteboardCanvas";
 import { NotebooksList } from "./NotebooksList";
@@ -1123,12 +1125,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
                         key={m.userId}
                         className="flex items-center gap-3 p-2 rounded-xl bg-gray-50 dark:bg-zinc-850/40 border border-gray-150 dark:border-zinc-800/40 animate-fade-in"
                       >
-                        <img
-                          src={m.photoUrl}
-                          alt=""
-                          className="w-9 h-9 rounded-full object-cover border border-black/5 dark:border-white/5 shrink-0"
-                          referrerPolicy="no-referrer"
-                        />
+                        <span className="shrink-0">
+                          <PlanAvatar photoUrl={m.photoUrl} plan={m.plan} galaxy={isSuperAdmin(m.email)} size={36} showGem={false} />
+                        </span>
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-bold text-gray-900 dark:text-white truncate">{m.name}</p>
                           <p className="text-[10px] text-gray-400 truncate">{m.role || "Membro"}</p>
@@ -1582,10 +1581,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
                     id={`legend-member-${m.userId}`}
                     key={m.userId}
                     onClick={() => setSelectedProfileMember(m)}
-                    className={`w-7 h-7 rounded-full border border-white dark:border-zinc-900 flex items-center justify-center text-[10px] font-bold ${m.color.split(" ")[0] || ""} ${m.color.split(" ")[1] || ""} cursor-pointer hover:scale-115 active:scale-90 transition-all outline-none focus:outline-none shrink-0`}
+                    className="rounded-full cursor-pointer hover:scale-115 active:scale-90 transition-all outline-none focus:outline-none shrink-0"
                     title={`${m.name} (${m.role || "Membro"}) - Ver Perfil`}
                   >
-                    <img src={m.photoUrl} alt="" className="w-full h-full object-cover rounded-full" referrerPolicy="no-referrer" />
+                    <PlanAvatar photoUrl={m.photoUrl} plan={m.plan} galaxy={isSuperAdmin(m.email)} size={28} showGem={false} />
                   </button>
                 ))}
               </div>
@@ -1960,11 +1959,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
               <div className="text-center pt-4">
                 {/* Large Avatar */}
                 <div className="relative inline-block mb-3.5">
-                  <img
-                    src={selectedProfileMember.photoUrl}
-                    alt=""
-                    referrerPolicy="no-referrer"
-                    className="w-20 h-20 rounded-2xl object-cover border-2 border-sky-500 shadow-md mx-auto"
+                  <PlanAvatar
+                    photoUrl={selectedProfileMember.photoUrl}
+                    plan={selectedProfileMember.plan}
+                    galaxy={isSuperAdmin(selectedProfileMember.email)}
+                    size={84}
                   />
                   <span
                     className={`absolute -bottom-1.5 -right-1.5 px-2 py-0.5 text-[8px] font-bold uppercase rounded-md shadow-sm border border-white dark:border-zinc-900 ${

@@ -1740,6 +1740,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateUserProfile = async (name: string, photoUrl: string, role?: string) => {
     if (!currentUser) return;
     const updated = { ...currentUser, name, photoUrl, role };
+    // Campos espelhados no registro de membro (para manter avatar/nome/moldura em dia nos grupos)
+    const memberPatch = { name, photoUrl, role: role ?? "", plan: currentUser.plan || "free", email: currentUser.email };
 
     if (isDemoMode) {
       saveDemoUser(updated);
@@ -1753,16 +1755,66 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       groups.forEach((g) => {
         const mems = JSON.parse(localStorage.getItem(`demo_group_members_${g.id}`) || "[]") as GroupMember[];
         const updatedMems = mems.map((m) =>
-          m.userId === currentUser.id ? { ...m, name, photoUrl, role } : m
+          m.userId === currentUser.id ? { ...m, ...memberPatch } : m
         );
         localStorage.setItem(`demo_group_members_${g.id}`, JSON.stringify(updatedMems));
       });
+      // Reflete na lista de membros carregada do grupo atual
+      setGroupMembers((prev) => prev.map((m) => (m.userId === currentUser.id ? { ...m, ...memberPatch } : m)));
     } else {
       const userDocRef = doc(db, "users", currentUser.id);
       await updateDoc(userDocRef, { name, photoUrl, role });
       setCurrentUser(updated);
+
+      // Propaga para o registro de membro do usuário em cada grupo (corrige foto antiga nos grupos)
+      await Promise.all(
+        groups
+          .filter((g) => !g.id.startsWith("dm_"))
+          .map((g) =>
+            updateDoc(doc(db, `groups/${g.id}/members`, currentUser.id), memberPatch).catch((e) =>
+              handleFirestoreError(e, OperationType.UPDATE, `groups/${g.id}/members/${currentUser.id}`)
+            )
+          )
+      );
     }
   };
+
+  // Migração retroativa: mantém o registro de membro do próprio usuário em dia
+  // (foto/nome/plano/email) em todos os grupos, sem precisar reeditar o perfil.
+  const selfHealedRef = useRef(false);
+  useEffect(() => {
+    if (!currentUser || selfHealedRef.current) return;
+    const realGroups = groups.filter((g) => !g.id.startsWith("dm_"));
+    if (realGroups.length === 0) return;
+    selfHealedRef.current = true;
+    const patch = {
+      name: currentUser.name,
+      photoUrl: currentUser.photoUrl,
+      plan: currentUser.plan || "free",
+      email: currentUser.email,
+    };
+    if (isDemoMode) {
+      realGroups.forEach((g) => {
+        const key = `demo_group_members_${g.id}`;
+        const mems = JSON.parse(localStorage.getItem(key) || "[]") as GroupMember[];
+        let changed = false;
+        const next = mems.map((m) => {
+          if (m.userId !== currentUser.id) return m;
+          if (m.photoUrl !== patch.photoUrl || m.plan !== patch.plan || m.email !== patch.email || m.name !== patch.name) {
+            changed = true;
+            return { ...m, ...patch };
+          }
+          return m;
+        });
+        if (changed) localStorage.setItem(key, JSON.stringify(next));
+      });
+      setGroupMembers((prev) => prev.map((m) => (m.userId === currentUser.id ? { ...m, ...patch } : m)));
+    } else {
+      realGroups.forEach((g) => {
+        updateDoc(doc(db, `groups/${g.id}/members`, currentUser.id), patch).catch(() => {});
+      });
+    }
+  }, [currentUser, groups, isDemoMode]);
 
   const toggleTheme = () => {
     const nextTheme = theme === "light" ? "dark" : "light";
@@ -1809,6 +1861,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       name: currentUser.name,
       photoUrl: currentUser.photoUrl || "",
       role: currentUser.role || "Criador",
+      plan: currentUser.plan || "free",
+      email: currentUser.email,
       color: PRESET_MEMBER_COLORS[0],
       joinedAt: new Date().toISOString(),
     };
@@ -1863,6 +1917,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           name: currentUser.name,
           photoUrl: currentUser.photoUrl,
           role: currentUser.role || "Membro",
+          plan: currentUser.plan || "free",
+          email: currentUser.email,
           color: targetColor,
           joinedAt: new Date().toISOString(),
         };
@@ -1901,6 +1957,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             name: currentUser.name,
             photoUrl: currentUser.photoUrl,
             role: currentUser.role || "Membro",
+            plan: currentUser.plan || "free",
+            email: currentUser.email,
             color: targetColor,
             joinedAt: new Date().toISOString(),
           };
@@ -3208,6 +3266,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         email: senderUser.email,
         friendCode: senderUser.friendCode || "",
         joinedAt: new Date().toISOString(),
+        plan: senderUser.plan || "free",
       };
       if (!myFriends.some((f) => f.id === senderUser.id)) {
         const nextFriends = [...myFriends, newFriendForMe];
@@ -3226,6 +3285,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         email: currentUser.email,
         friendCode: currentUser.friendCode || "",
         joinedAt: new Date().toISOString(),
+        plan: currentUser.plan || "free",
       };
       if (!senderFriends.some((f) => f.id === currentUser.id)) {
         localStorage.setItem(`demo_friends_${senderUser.id}`, JSON.stringify([...senderFriends, newFriendForSender]));
@@ -3255,6 +3315,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           email: senderData?.email || "",
           friendCode: senderData?.friendCode || "",
           joinedAt: new Date().toISOString(),
+          plan: senderData?.plan || "free",
         });
 
         const senderFriendRef = doc(db, `users/${requestId}/friends`, currentUser.id);
@@ -3265,6 +3326,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           email: currentUser.email,
           friendCode: currentUser.friendCode || "",
           joinedAt: new Date().toISOString(),
+          plan: currentUser.plan || "free",
         });
 
         await deleteDoc(reqRef);

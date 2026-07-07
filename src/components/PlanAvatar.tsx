@@ -17,11 +17,33 @@ interface PlanAvatarProps {
   className?: string;
   showGem?: boolean;
   title?: string;
+  /** Moldura exclusiva do Criador (galáxia animada) — sobrepõe o plano. */
+  galaxy?: boolean;
 }
 
-const PlanAvatar: React.FC<PlanAvatarProps> = ({ photoUrl, plan, size = 36, className = "", showGem = true, title }) => {
+const PlanAvatar: React.FC<PlanAvatarProps> = ({ photoUrl, plan, size = 36, className = "", showGem = true, title, galaxy }) => {
   const def = getPlan(plan);
   const dim = { width: size, height: size };
+  const gemSizeFor = (s: number) => Math.max(12, Math.round(s * 0.34));
+
+  // Moldura exclusiva do Criador: galáxia animada (independe do plano).
+  if (galaxy) {
+    return (
+      <span className={`relative inline-block rounded-full ws-galaxy-glow ${className}`} style={dim} title={title || "Criador · moldura Galáxia"}>
+        <span className="absolute inset-0 rounded-full overflow-hidden">
+          <span className="ws-galaxy-ring" />
+        </span>
+        <span className="absolute inset-[2.5px] rounded-full overflow-hidden border border-white/50 dark:border-zinc-950 bg-zinc-950">
+          {photoUrl ? <img src={photoUrl} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" /> : null}
+        </span>
+        {showGem && (
+          <span className="absolute -bottom-1 -right-1 leading-none drop-shadow ws-galaxy-twinkle" style={{ fontSize: gemSizeFor(size) }} aria-hidden>
+            🌌
+          </span>
+        )}
+      </span>
+    );
+  }
 
   if (!def.frame) {
     return (
