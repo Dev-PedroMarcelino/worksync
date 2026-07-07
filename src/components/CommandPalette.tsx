@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
+import { readBillingReturn, clearBillingParam } from "../services/billing";
 import BoardTemplatesModal from "./BoardTemplatesModal";
 import ProductivityDashboard from "./ProductivityDashboard";
 import PlansModal from "./PlansModal";
@@ -98,6 +99,14 @@ const CommandPalette: React.FC = () => {
       setTimeout(() => inputRef.current?.focus(), 30);
     }
   }, [open]);
+
+  // Feedback ao voltar do checkout do Stripe (?billing=success|cancel)
+  useEffect(() => {
+    const r = readBillingReturn();
+    if (r === "success") notify("Pagamento concluído! Seu plano será ativado em instantes.", "success");
+    else if (r === "cancel") notify("Pagamento cancelado.", "info");
+    if (r) clearBillingParam();
+  }, [notify]);
 
   const close = () => setOpen(false);
 
