@@ -111,6 +111,10 @@ interface AppContextType {
   grantSubgroupPermission: (subgroupId: string, targetUserId: string, canEdit: boolean) => Promise<void>;
   getSubgroupPermissions: (subgroupId: string) => Promise<{ [userId: string]: boolean }>;
 
+  // Papéis de grupo
+  isGroupAdmin: (userId?: string) => boolean;
+  setMemberRole: (userId: string, role: "admin" | "member") => Promise<void>;
+
   // Actions - Tasks
   createTask: (title: string, description: string, priority: "low" | "medium" | "high", dueDate: string, assignedTo?: string, checklistTexts?: string[], tags?: string[], status?: Task["status"], recurrence?: Task["recurrence"]) => Promise<void>;
   toggleTaskStatus: (taskId: string) => Promise<void>;
@@ -3548,6 +3552,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // --- PAPÉIS DE GRUPO (admin/membro) ---
+
+  const isGroupAdmin = (userId?: string): boolean => {
+    const uid = userId || currentUser?.id;
+    if (!uid || !selectedGroup) return false;
+    if (selectedGroup.creatorId === uid) return true; // criador é sempre admin
+    const m = groupMembers.find((mm) => mm.userId === uid);
+    return m?.groupRole === "admin";
+  };
+
+  const setMemberRole = async (userId: string, role: "admin" | "member"): Promise<void> => {
+    if (!currentUser || !selectedGroup) return;
+    if (selectedGroup.creatorId !== currentUser.id) return; // só o criador altera papéis
+    if (userId === selectedGroup.creatorId) return; // o criador não muda de papel
+
+    if (isDemoMode) {
+      const key = `demo_group_members_${selectedGroup.id}`;
+      const members = JSON.parse(localStorage.getItem(key) || "[]") as GroupMember[];
+      const updated = members.map((m) => (m.userId === userId ? { ...m, groupRole: role } : m));
+      localStorage.setItem(key, JSON.stringify(updated));
+      setGroupMembers(updated);
+    } else {
+      try {
+        await updateDoc(doc(db, `groups/${selectedGroup.id}/members`, userId), { groupRole: role });
+      } catch (e) {
+        handleFirestoreError(e, OperationType.UPDATE, `groups/${selectedGroup.id}/members/${userId}`);
+      }
+    }
+  };
+
   const enterDemoMode = () => {
     setIsDemoMode(true);
     const storedUser = localStorage.getItem("demo_user_logged");
@@ -3625,6 +3659,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         checkSubgroupPermission,
         grantSubgroupPermission,
         getSubgroupPermissions,
+        isGroupAdmin,
+        setMemberRole,
 
         createTask,
         toggleTaskStatus,
