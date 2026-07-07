@@ -3,12 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { X, BarChart3, Download, CheckCircle2, Clock, AlertTriangle, ListTodo, TrendingUp } from "lucide-react";
+import { X, BarChart3, Download, CheckCircle2, Clock, AlertTriangle, ListTodo, TrendingUp, Sparkles, Loader2 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
+import { summarizeActivity } from "../services/aiAssistant";
 import type { Task } from "../types";
+
+const ACTION_VERB: Record<string, string> = { create: "criou", complete: "concluiu", update: "atualizou", delete: "excluiu" };
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
@@ -52,6 +55,37 @@ const Bar: React.FC<{ label: string; value: number; total: number; color: string
 const ProductivityDashboard: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
   const { activeTab, tasks, allGroupTasks, auditLogs, selectedGroup, selectedSubgroup } = useApp();
   const notify = useToast();
+  const [summary, setSummary] = useState("");
+  const [summaryLoading, setSummaryLoading] = useState(false);
+
+  const generateSummary = async () => {
+    if (summaryLoading) return;
+    setSummaryLoading(true);
+    try {
+      const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const recent = auditLogs.filter((l) => new Date(l.timestamp).getTime() >= weekAgo);
+      const counts = { create: 0, complete: 0, update: 0, delete: 0 } as Record<string, number>;
+      const byMember = new Map<string, number>();
+      recent.forEach((l) => {
+        counts[l.action] = (counts[l.action] || 0) + 1;
+        if (l.action === "complete") byMember.set(l.performedBy, (byMember.get(l.performedBy) || 0) + 1);
+      });
+      const top = [...byMember.entries()].sort((a, b) => b[1] - a[1])[0];
+      const digest = recent
+        .slice(0, 40)
+        .map((l) => `${l.performedBy} ${ACTION_VERB[l.action] || l.action} "${l.taskTitle}" (${l.subgroupName})`)
+        .join("\n");
+      const fallback = recent.length
+        ? `Nos últimos 7 dias: ${counts.create} tarefa(s) criada(s), ${counts.complete} concluída(s) e ${counts.update} atualizada(s).${top ? ` Destaque para ${top[0]} (${top[1]} concluída(s)).` : ""}`
+        : "Sem atividade registrada nos últimos 7 dias.";
+      const out = await summarizeActivity(digest, fallback);
+      setSummary(out);
+    } catch {
+      notify("Não foi possível gerar o resumo.", "error");
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
 
   const isGroupWide = activeTab === "groups" && !!selectedGroup && !selectedSubgroup;
   const data: Task[] = isGroupWide ? allGroupTasks : tasks;
@@ -152,6 +186,28 @@ const ProductivityDashboard: React.FC<{ open: boolean; onClose: () => void }> = 
             </div>
 
             <div className="flex-1 overflow-y-auto scrollbar-thin p-5 space-y-5">
+              {auditLogs.length > 0 && (
+                <div className="rounded-2xl border border-violet-500/20 bg-violet-500/[0.03] p-4">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="text-xs font-semibold text-gray-700 dark:text-zinc-300 flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-violet-500" /> Resumo da semana
+                    </span>
+                    <button
+                      onClick={generateSummary}
+                      disabled={summaryLoading}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-gradient-to-r from-violet-500 to-sky-500 text-white shadow-xs hover:opacity-95 transition-opacity cursor-pointer disabled:opacity-50"
+                    >
+                      {summaryLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                      {summaryLoading ? "Gerando…" : summary ? "Atualizar" : "Gerar resumo"}
+                    </button>
+                  </div>
+                  {summary ? (
+                    <p className="text-xs text-gray-600 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">{summary}</p>
+                  ) : (
+                    <p className="text-[11px] text-gray-400 dark:text-zinc-500">Gere um resumo em linguagem natural do que o grupo fez nos últimos 7 dias.</p>
+                  )}
+                </div>
+              )}
               {stats.total === 0 ? (
                 <div className="h-48 flex flex-col items-center justify-center text-center gap-2">
                   <BarChart3 className="w-8 h-8 text-gray-300 dark:text-zinc-700" />

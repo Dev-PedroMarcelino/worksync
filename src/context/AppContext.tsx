@@ -139,6 +139,7 @@ interface AppContextType {
   sendChatMessage: (text: string, dmTo?: string, fileData?: { url: string; name: string; type: string }) => Promise<void>;
   editChatMessage: (messageId: string, newText: string) => Promise<void>;
   deleteChatMessage: (messageId: string) => Promise<void>;
+  toggleReaction: (messageId: string, emoji: string) => Promise<void>;
 
   // Friends & Requests
   friends: Friend[];
@@ -3019,6 +3020,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const toggleReaction = async (messageId: string, emoji: string): Promise<void> => {
+    if (!currentUser) return;
+    let targetGroupId = "";
+    if (selectedDmUserId) {
+      targetGroupId = "dm_" + [currentUser.id, selectedDmUserId].sort().join("_");
+    } else {
+      if (!selectedGroup) return;
+      targetGroupId = selectedGroup.id;
+    }
+
+    const msg = chatMessages.find((m) => m.id === messageId);
+    const current = (msg?.reactions || {}) as { [emoji: string]: string[] };
+    const users = current[emoji] || [];
+    const has = users.includes(currentUser.id);
+    const nextUsers = has ? users.filter((u) => u !== currentUser.id) : [...users, currentUser.id];
+    const nextReactions: { [emoji: string]: string[] } = { ...current };
+    if (nextUsers.length) nextReactions[emoji] = nextUsers;
+    else delete nextReactions[emoji];
+
+    if (isDemoMode) {
+      const key = `demo_group_messages_${targetGroupId}`;
+      const currentMsgs = JSON.parse(localStorage.getItem(key) || "[]") as ChatMessage[];
+      const nextMsgs = currentMsgs.map((m) => (m.id === messageId ? { ...m, reactions: nextReactions } : m));
+      localStorage.setItem(key, JSON.stringify(nextMsgs));
+      setChatMessages(nextMsgs);
+    } else {
+      try {
+        const msgRef = doc(db, `groups/${targetGroupId}/messages`, messageId);
+        await updateDoc(msgRef, { reactions: nextReactions });
+      } catch (e) {
+        handleFirestoreError(e, OperationType.UPDATE, `groups/${targetGroupId}/messages/${messageId}`);
+      }
+    }
+  };
+
   const deleteChatMessage = async (messageId: string): Promise<void> => {
     if (!currentUser) return;
     let targetGroupId = "";
@@ -3628,6 +3664,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sendChatMessage,
         editChatMessage,
         deleteChatMessage,
+        toggleReaction,
 
         toasts,
         removeToast,

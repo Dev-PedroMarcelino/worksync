@@ -5,6 +5,8 @@ import { ChatMessage, GroupMember } from "../types";
 import { useConfirm } from "../context/ConfirmContext";
 import { useToast } from "../context/ToastContext";
 
+const QUICK_REACTIONS = ["👍", "❤️", "😂", "🎉", "🙏", "😮"];
+
 interface GroupChatModuleProps {
   onOpenProfile: (member: GroupMember) => void;
   selectedDmUserId: string | null;
@@ -24,6 +26,7 @@ export const GroupChatModule: React.FC<GroupChatModuleProps> = ({
     sendChatMessage,
     editChatMessage,
     deleteChatMessage,
+    toggleReaction,
     friends,
     chatMobileView,
     setChatMobileView,
@@ -32,6 +35,7 @@ export const GroupChatModule: React.FC<GroupChatModuleProps> = ({
   const toast = useToast();
 
   const [inputText, setInputText] = useState("");
+  const [reactionPickerFor, setReactionPickerFor] = useState<string | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const [selectedFile, setSelectedFile] = useState<{ url: string; name: string; type: string } | null>(null);
@@ -272,7 +276,7 @@ export const GroupChatModule: React.FC<GroupChatModuleProps> = ({
               <div
                 id={`chat-msg-${msg.id}`}
                 key={msg.id}
-                className={`flex items-start gap-2.5 max-w-[85%] sm:max-w-[75%] ${
+                className={`group/msg flex items-start gap-2.5 max-w-[85%] sm:max-w-[75%] ${
                   isMe ? "ml-auto flex-row-reverse" : "mr-auto"
                 }`}
               >
@@ -396,6 +400,50 @@ export const GroupChatModule: React.FC<GroupChatModuleProps> = ({
                               )}
                             </div>
                           )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Reações */}
+                  <div className={`flex items-center gap-1 flex-wrap mt-0.5 ${isMe ? "justify-end" : "justify-start"}`}>
+                    {(Object.entries(msg.reactions || {}) as [string, string[]][]).map(([emoji, users]) => {
+                      const mine = users.includes(currentUser.id);
+                      return (
+                        <button
+                          key={emoji}
+                          onClick={() => toggleReaction(msg.id, emoji)}
+                          className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] border transition-colors cursor-pointer ${
+                            mine
+                              ? "bg-sky-500/15 border-sky-500/40 text-sky-600 dark:text-sky-300"
+                              : "bg-gray-100 dark:bg-zinc-800 border-transparent text-gray-500 dark:text-zinc-400 hover:bg-gray-150 dark:hover:bg-zinc-700"
+                          }`}
+                          title={`${users.length} reação(ões)`}
+                        >
+                          <span>{emoji}</span>
+                          <span className="font-bold">{users.length}</span>
+                        </button>
+                      );
+                    })}
+                    <div className="relative">
+                      <button
+                        onClick={() => setReactionPickerFor(reactionPickerFor === msg.id ? null : msg.id)}
+                        className="p-0.5 rounded-full text-gray-300 dark:text-zinc-600 hover:text-sky-500 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-all cursor-pointer opacity-0 group-hover/msg:opacity-100 focus:opacity-100"
+                        title="Reagir"
+                      >
+                        <Smile className="w-3.5 h-3.5" />
+                      </button>
+                      {reactionPickerFor === msg.id && (
+                        <div className={`absolute z-20 bottom-full mb-1 flex items-center gap-0.5 p-1 rounded-full bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 shadow-lg ${isMe ? "right-0" : "left-0"}`}>
+                          {QUICK_REACTIONS.map((em) => (
+                            <button
+                              key={em}
+                              onClick={() => { toggleReaction(msg.id, em); setReactionPickerFor(null); }}
+                              className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-zinc-700 text-sm cursor-pointer"
+                            >
+                              {em}
+                            </button>
+                          ))}
                         </div>
                       )}
                     </div>
