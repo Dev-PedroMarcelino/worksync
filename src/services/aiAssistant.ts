@@ -464,3 +464,38 @@ export async function generateChecklist(title: string, description = ""): Promis
   // Fallback local: esqueleto genérico de execução.
   return ["Planejar e organizar", "Executar a parte principal", "Revisar o resultado", "Concluir e comunicar"];
 }
+
+/**
+ * Resume a atividade de um grupo (a partir de um registro de ações) em poucas
+ * frases. Usa a IA quando configurada; senão devolve o `fallback` já calculado
+ * pelo chamador (contagens simples). Nunca quebra.
+ */
+export async function summarizeActivity(digest: string, fallback: string): Promise<string> {
+  const clean = (digest || "").trim();
+  if (!clean) return fallback;
+
+  if (isAiConfigured()) {
+    try {
+      const { GoogleGenAI } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey: AI_API_KEY });
+      const res: any = await ai.models.generateContent({
+        model: AI_MODEL,
+        contents: clean,
+        config: {
+          systemInstruction:
+            "Você resume a atividade de um grupo de trabalho, em português do Brasil. " +
+            "A partir do registro de ações abaixo, escreva um resumo objetivo em 2 a 4 frases, " +
+            "destacando o que foi concluído, o que está em andamento e quem se destacou. " +
+            "Tom profissional e direto. Não invente dados que não estejam no registro.",
+          temperature: 0.4,
+        },
+      });
+      const out = (res?.text ?? "").trim();
+      if (out) return out;
+    } catch (err) {
+      console.warn("[aiAssistant] Falha ao resumir atividade, usando fallback:", err);
+    }
+  }
+
+  return fallback;
+}

@@ -141,6 +141,7 @@ export interface ChatMessage {
   fileName?: string;
   fileType?: string;
   pending?: boolean;
+  reactions?: { [emoji: string]: string[] }; // emoji -> userIds que reagiram
 }
 
 export interface CalendarEvent {
