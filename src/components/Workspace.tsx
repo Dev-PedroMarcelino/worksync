@@ -35,7 +35,10 @@ import {
   Settings,
   Download,
   Sparkles,
-  Search
+  Search,
+  LayoutTemplate,
+  BarChart3,
+  Crown
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import AiAssistantModal from "./AiAssistantModal";
@@ -1754,6 +1757,39 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
 
       {/* CORE WORKSPACE CONTENT PANEL */}
       <main className={`flex-1 w-full max-w-full overflow-hidden relative flex flex-col ${activeModule === "chat" ? "p-0 md:p-6" : "p-2 sm:p-6"} min-h-0`} id="workspace-main-panel">
+        {/* Barra de ações dedicada (Assistente IA, Templates, Produtividade, Planos) */}
+        {(isPersonal || selectedSubgroup) && activeModule !== "chat" && (
+          <div id="workspace-quick-actions" className="shrink-0 mb-3 flex items-center gap-2 overflow-x-auto scrollbar-none">
+            <button
+              onClick={() => window.dispatchEvent(new Event("open-ai-assistant"))}
+              className="shrink-0 flex items-center gap-1.5 pl-2.5 pr-3.5 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-violet-500 to-sky-500 shadow-sm hover:opacity-95 transition-opacity cursor-pointer"
+              title="Organizar por voz com IA"
+            >
+              <Sparkles className="w-4 h-4" /> Assistente IA
+            </button>
+            <button
+              onClick={() => window.dispatchEvent(new Event("open-templates"))}
+              className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 text-gray-600 dark:text-zinc-300 hover:border-sky-400/50 hover:text-sky-600 dark:hover:text-sky-400 transition-colors cursor-pointer"
+              title="Templates de quadro"
+            >
+              <LayoutTemplate className="w-4 h-4" /> Templates
+            </button>
+            <button
+              onClick={() => window.dispatchEvent(new Event("open-dashboard"))}
+              className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 text-gray-600 dark:text-zinc-300 hover:border-emerald-400/50 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-pointer"
+              title="Dashboard de produtividade"
+            >
+              <BarChart3 className="w-4 h-4" /> Produtividade
+            </button>
+            <button
+              onClick={() => window.dispatchEvent(new Event("open-plans"))}
+              className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 text-gray-600 dark:text-zinc-300 hover:border-amber-400/50 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer"
+              title="Planos e assinatura"
+            >
+              <Crown className="w-4 h-4" /> Planos
+            </button>
+          </div>
+        )}
         {/* Permission restriction header warn (Read-Only safeguard list) */}
         {!isPersonal && selectedSubgroup && !canEditSubgroup && (
           <div className="mb-4 px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-center gap-3 text-xs text-amber-700 dark:text-amber-400 scale-98 select-none shrink-0">
@@ -1901,18 +1937,6 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
     </div>
       </main>
 
-      {/* ASSISTENTE IA — botão flutuante (voz -> tarefas + compromissos) */}
-      {(isPersonal || selectedSubgroup) && (activeModule === "tasks" || activeModule === "calendar") && (
-        <button
-          id="ai-assistant-fab"
-          onClick={() => setAiOpen(true)}
-          className="fixed bottom-5 right-5 sm:bottom-7 sm:right-7 z-40 flex items-center gap-2 pl-3.5 pr-4 py-3 rounded-full bg-gradient-to-r from-violet-500 to-sky-500 text-white shadow-lg shadow-sky-500/25 hover:scale-105 active:scale-95 transition-transform cursor-pointer"
-          title="Organizar por voz com IA"
-        >
-          <Sparkles className="w-5 h-5" />
-          <span className="text-sm font-semibold hidden sm:inline">Assistente IA</span>
-        </button>
-      )}
       <AiAssistantModal open={aiOpen} onClose={() => setAiOpen(false)} />
 
       {/* USER PROFILE MODAL */}
