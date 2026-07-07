@@ -20,8 +20,10 @@
 import Stripe from "stripe";
 
 const PRICE_IDS: Record<string, string | undefined> = {
-  pro: process.env.STRIPE_PRICE_PRO,
-  team: process.env.STRIPE_PRICE_TEAM,
+  prata: process.env.STRIPE_PRICE_PRATA,
+  ouro: process.env.STRIPE_PRICE_OURO,
+  diamante: process.env.STRIPE_PRICE_DIAMANTE,
+  esmeralda: process.env.STRIPE_PRICE_ESMERALDA,
 };
 
 export default async function handler(req: any, res: any) {

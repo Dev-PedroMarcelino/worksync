@@ -103,7 +103,7 @@ const AiAssistantModal: React.FC<{ open: boolean; onClose: () => void }> = ({ op
   const [reviewTasks, setReviewTasks] = useState<ReviewTask[]>([]);
   const [reviewEvents, setReviewEvents] = useState<ReviewEvent[]>([]);
 
-  const isPro = currentUser?.plan === "pro" || currentUser?.plan === "team";
+  const isPro = !!currentUser?.plan && currentUser.plan !== "free";
   const usage = currentUser ? getUsage(currentUser.id) : 0;
   const remaining = Math.max(0, FREE_MONTHLY_LIMIT - usage);
 
