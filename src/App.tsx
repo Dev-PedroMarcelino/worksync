@@ -15,6 +15,7 @@ import CommandPalette from "./components/CommandPalette";
 import DeadlineReminders from "./components/DeadlineReminders";
 import InviteHandler from "./components/InviteHandler";
 import AdminPanel from "./components/AdminPanel";
+import AppTheme from "./components/AppTheme";
 import { motion, AnimatePresence } from "motion/react";
 import { CheckSquare, MessageSquare, X } from "lucide-react";
 
@@ -145,6 +146,7 @@ export default function App() {
     <AppProvider>
       <ConfirmProvider>
         <ToastProvider>
+          <AppTheme />
           <MainLayout />
         </ToastProvider>
       </ConfirmProvider>
