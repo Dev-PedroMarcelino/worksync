@@ -4,6 +4,8 @@ import { X, Check, Camera, Eye, Info, ShieldCheck, Sun, Moon, Copy, Trash2, User
 import { motion } from "motion/react";
 import { useConfirm } from "../context/ConfirmContext";
 import { useToast } from "../context/ToastContext";
+import PlanAvatar from "./PlanAvatar";
+import { isSuperAdmin } from "../config/admin";
 
 interface ProfileModalProps {
   onClose: () => void;
@@ -153,13 +155,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose, initialTab 
                 Seu Avatar
               </label>
               <div className="flex items-center gap-4 mb-4">
-                <div className="w-16 h-16 rounded-full border border-gray-250 dark:border-zinc-700 overflow-hidden shrink-0 bg-gray-55">
-                  <img
-                    src={photoUrl}
-                    alt="Previa"
-                    className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
+                <div className="shrink-0">
+                  <PlanAvatar photoUrl={photoUrl} plan={currentUser?.plan} galaxy={isSuperAdmin(currentUser?.email)} size={64} />
                 </div>
                 <div className="grid grid-cols-6 gap-1.5 flex-1">
                   {AVATAR_PRESETS.map((preset) => (

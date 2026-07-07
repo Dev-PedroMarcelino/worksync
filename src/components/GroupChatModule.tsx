@@ -4,6 +4,8 @@ import { Send, MessageSquare, Shield, Smile, User2, MessageCircle, Paperclip, Pe
 import { ChatMessage, GroupMember } from "../types";
 import { useConfirm } from "../context/ConfirmContext";
 import { useToast } from "../context/ToastContext";
+import PlanAvatar from "./PlanAvatar";
+import { isSuperAdmin } from "../config/admin";
 
 const QUICK_REACTIONS = ["👍", "❤️", "😂", "🎉", "🙏", "😮"];
 
@@ -226,6 +228,13 @@ export const GroupChatModule: React.FC<GroupChatModuleProps> = ({
 
   const roomDetails = getActiveRoomDetails();
 
+  // Resolve a moldura/foto atual de um usuário (usa dados do próprio usuário quando é você).
+  const resolveAvatar = (userId: string, fallbackPhoto?: string) => {
+    if (userId === currentUser.id) return { photoUrl: currentUser.photoUrl, plan: currentUser.plan, email: currentUser.email };
+    const m = groupMembers.find((x) => x.userId === userId);
+    return { photoUrl: m?.photoUrl || fallbackPhoto, plan: m?.plan, email: m?.email };
+  };
+
   return (
     <div className="flex-1 w-full max-w-full flex min-h-0 bg-white dark:bg-zinc-900 md:rounded-3xl md:border border-gray-200 dark:border-zinc-800 overflow-hidden md:shadow-sm" id="group-chat-module">
       {/* RIGHT PANEL: CHAT SCENE */}
@@ -290,12 +299,10 @@ export const GroupChatModule: React.FC<GroupChatModuleProps> = ({
                     className="shrink-0 mt-0.5 cursor-pointer hover:opacity-85"
                     title={`Ver perfil de ${msg.senderName}`}
                   >
-                    <img
-                      src={msg.senderPhoto}
-                      alt=""
-                      referrerPolicy="no-referrer"
-                      className="w-8 h-8 rounded-full border border-black/10 dark:border-white/15 object-cover"
-                    />
+                    {(() => {
+                      const a = resolveAvatar(msg.senderId, msg.senderPhoto);
+                      return <PlanAvatar photoUrl={a.photoUrl} plan={a.plan} galaxy={isSuperAdmin(a.email)} size={32} showGem={false} />;
+                    })()}
                   </button>
                 )}
 

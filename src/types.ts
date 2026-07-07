@@ -35,6 +35,8 @@ export interface GroupMember {
   photoUrl: string;
   role?: string;
   groupRole?: "admin" | "member"; // papel de gestão no grupo (criador é sempre admin)
+  plan?: "free" | "prata" | "ouro" | "diamante" | "esmeralda"; // plano do usuário (para moldura do avatar)
+  email?: string; // e-mail do usuário (para identificar o Criador / moldura galáxia)
   color: string; // Tone of color designated to this member
   joinedAt: string;
 }
