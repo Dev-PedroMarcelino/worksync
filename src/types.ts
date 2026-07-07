@@ -71,6 +71,7 @@ export interface Task {
   assignedToName?: string;
   tags?: string[];
   order?: number; // manual ordering within a Kanban column
+  recurrence?: "none" | "daily" | "weekly" | "monthly"; // auto-recreate on completion
   checklist: ChecklistItem[];
   creatorId: string;
   createdAt: string;

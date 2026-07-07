@@ -22,11 +22,22 @@ import {
   Tag,
   Clock,
   ArrowUpDown,
+  Repeat,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Task, ChecklistItem, TaskStatus } from "../types";
 import { useToast } from "../context/ToastContext";
 import { useConfirm } from "../context/ConfirmContext";
+import { generateChecklist } from "../services/aiAssistant";
+
+const RECURRENCE_LABEL: Record<string, string> = {
+  none: "Não repete",
+  daily: "Diária",
+  weekly: "Semanal",
+  monthly: "Mensal",
+};
 
 interface TaskBoardProps {
   canEdit: boolean;
@@ -85,6 +96,8 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ canEdit }) => {
   const [tagInput, setTagInput] = useState("");
   const [fChecklist, setFChecklist] = useState<ChecklistItem[]>([]);
   const [checkInput, setCheckInput] = useState("");
+  const [fRecur, setFRecur] = useState<NonNullable<Task["recurrence"]>>("none");
+  const [aiLoading, setAiLoading] = useState(false);
 
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<TaskStatus | null>(null);
@@ -134,6 +147,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ canEdit }) => {
     setEditing(null);
     setFTitle(""); setFDesc(""); setFPriority("medium"); setFDue(""); setFAssigned("");
     setFStatus(status); setFTags([]); setTagInput(""); setFChecklist([]); setCheckInput("");
+    setFRecur("none");
     setModalOpen(true);
   };
   const openEdit = (t: Task) => {
@@ -141,7 +155,26 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ canEdit }) => {
     setFTitle(t.title); setFDesc(t.description || ""); setFPriority(t.priority);
     setFDue(t.dueDate || ""); setFAssigned(t.assignedTo || ""); setFStatus(t.status);
     setFTags(t.tags || []); setTagInput(""); setFChecklist(t.checklist || []); setCheckInput("");
+    setFRecur(t.recurrence || "none");
     setModalOpen(true);
+  };
+
+  const generateAiSubtasks = async () => {
+    if (!fTitle.trim() || aiLoading) return;
+    setAiLoading(true);
+    try {
+      const steps = await generateChecklist(fTitle.trim(), fDesc.trim());
+      const existing = new Set(fChecklist.map((c) => c.text.toLowerCase()));
+      const fresh = steps
+        .filter((s) => !existing.has(s.toLowerCase()))
+        .map((text) => ({ id: "chk_" + Math.random().toString(36).slice(2, 7), text, done: false }));
+      if (fresh.length) setFChecklist((prev) => [...prev, ...fresh]);
+      else toast("Nenhuma subtarefa nova gerada.", "info");
+    } catch {
+      toast("Não foi possível gerar subtarefas.");
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const addTag = () => {
@@ -167,10 +200,10 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ canEdit }) => {
         await updateTaskFields(editing.id, {
           title: fTitle.trim(), description: fDesc.trim(), priority: fPriority,
           dueDate: fDue, assignedTo: fAssigned, assignedToName, status: fStatus,
-          tags: fTags, checklist: fChecklist,
+          tags: fTags, checklist: fChecklist, recurrence: fRecur,
         });
       } else {
-        await createTask(fTitle.trim(), fDesc.trim(), fPriority, fDue, fAssigned || undefined, fChecklist.map((c) => c.text), fTags, fStatus);
+        await createTask(fTitle.trim(), fDesc.trim(), fPriority, fDue, fAssigned || undefined, fChecklist.map((c) => c.text), fTags, fStatus, fRecur);
       }
       setModalOpen(false);
     } catch {
@@ -375,6 +408,18 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ canEdit }) => {
                     ))}
                   </div>
                 </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 flex items-center gap-1"><Repeat className="w-3 h-3" /> Repetição</label>
+                  <select value={fRecur} onChange={(e) => setFRecur(e.target.value as NonNullable<Task["recurrence"]>)} className="w-full px-3 py-2.5 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-1 focus:ring-sky-500 text-gray-800 dark:text-zinc-200">
+                    <option value="none">Não repete</option>
+                    <option value="daily">Diária</option>
+                    <option value="weekly">Semanal</option>
+                    <option value="monthly">Mensal</option>
+                  </select>
+                  {fRecur !== "none" && (
+                    <p className="text-[10px] text-gray-400 dark:text-zinc-500 mt-1">Ao concluir, uma nova ocorrência é criada automaticamente.</p>
+                  )}
+                </div>
                 {!isPersonal && (
                   <div>
                     <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Atribuir a</label>
@@ -404,7 +449,19 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ canEdit }) => {
                 </div>
                 {/* Checklist */}
                 <div className="border border-gray-150 dark:border-zinc-800 rounded-xl p-3 bg-zinc-50/50 dark:bg-zinc-900/40">
-                  <span className="block font-semibold text-gray-700 dark:text-zinc-300 mb-1.5 text-[11px]">Subtarefas ({fChecklist.filter((c) => c.done).length}/{fChecklist.length})</span>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="font-semibold text-gray-700 dark:text-zinc-300 text-[11px]">Subtarefas ({fChecklist.filter((c) => c.done).length}/{fChecklist.length})</span>
+                    <button
+                      type="button"
+                      onClick={generateAiSubtasks}
+                      disabled={!fTitle.trim() || aiLoading}
+                      title="Gerar subtarefas com IA a partir do título"
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-gradient-to-r from-violet-500 to-sky-500 text-white shadow-xs hover:opacity-95 transition-opacity cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {aiLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                      {aiLoading ? "Gerando…" : "Gerar com IA"}
+                    </button>
+                  </div>
                   <div className="space-y-1 mb-2 max-h-32 overflow-y-auto">
                     {fChecklist.map((c) => (
                       <div key={c.id} className="flex items-center gap-1.5 group">
@@ -537,6 +594,11 @@ const TaskCard: React.FC<CardProps> = ({ task, compact, canEdit, isPersonal, isG
         {task.dueDate && (
           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-1 ${overdue ? "bg-rose-500/15 text-rose-600 dark:text-rose-400" : "bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-zinc-400"}`}>
             {overdue ? <Clock className="w-2.5 h-2.5" /> : <Calendar className="w-2.5 h-2.5" />}{fmtDate(task.dueDate)}
+          </span>
+        )}
+        {task.recurrence && task.recurrence !== "none" && (
+          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-1 bg-violet-500/10 text-violet-600 dark:text-violet-400" title={`Repete: ${RECURRENCE_LABEL[task.recurrence]}`}>
+            <Repeat className="w-2.5 h-2.5" />{RECURRENCE_LABEL[task.recurrence]}
           </span>
         )}
         {!isPersonal && task.assignedToName && (
