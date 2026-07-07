@@ -34,7 +34,8 @@ import {
   Image,
   Settings,
   Download,
-  Sparkles
+  Sparkles,
+  Search
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import AiAssistantModal from "./AiAssistantModal";
@@ -445,6 +446,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
   // States for user profile and chat DM
   const [selectedProfileMember, setSelectedProfileMember] = useState<GroupMember | null>(null);
   const [aiOpen, setAiOpen] = useState(false);
+
+  // Permite abrir o Assistente IA a partir da paleta de comandos (Cmd+K)
+  useEffect(() => {
+    const onOpenAi = () => setAiOpen(true);
+    window.addEventListener("open-ai-assistant", onOpenAi);
+    return () => window.removeEventListener("open-ai-assistant", onOpenAi);
+  }, []);
 
   const isPersonal = activeTab === "personal";
   const isGroupLeader = !isPersonal && selectedGroup && currentUser && selectedGroup.creatorId === currentUser.id;
@@ -1205,6 +1213,17 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
                   : "Mural do grupo"}
             </p>
           </div>
+
+          {/* Busca global / paleta de comandos (Cmd+K) */}
+          <button
+            id="workspace-command-btn"
+            onClick={() => window.dispatchEvent(new Event("open-command-palette"))}
+            className="ml-1 flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 dark:bg-zinc-800 dark:hover:bg-zinc-750 border border-gray-200 dark:border-zinc-750 text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200 cursor-pointer"
+            title="Buscar (Ctrl/Cmd + K)"
+          >
+            <Search className="w-4 h-4" />
+            <kbd className="hidden lg:inline text-[10px] font-mono border border-gray-200 dark:border-zinc-700 rounded px-1 py-0.5">⌘K</kbd>
+          </button>
         </div>
 
         {/* Module selector (icon + label, accessible tablist) */}

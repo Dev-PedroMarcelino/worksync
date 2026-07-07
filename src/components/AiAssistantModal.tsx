@@ -562,10 +562,10 @@ const UpgradePanel: React.FC<{ used: number; limit: number }> = ({ used, limit }
       ))}
     </ul>
     <button
+      onClick={() => window.dispatchEvent(new Event("open-plans"))}
       className="w-full max-w-xs mx-auto px-4 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-bold shadow-sm hover:opacity-95 transition-opacity cursor-pointer flex items-center justify-center gap-2"
-      title="Em breve"
     >
-      <Crown className="w-4 h-4" /> Assinar o Pro
+      <Crown className="w-4 h-4" /> Ver planos
     </button>
     <p className="text-[10px] text-gray-400 dark:text-zinc-600">Seu limite gratuito renova no próximo mês ({used}/{limit} usados).</p>
   </div>
