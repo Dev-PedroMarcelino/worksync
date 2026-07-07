@@ -31,6 +31,7 @@ export interface GroupMember {
   name: string;
   photoUrl: string;
   role?: string;
+  groupRole?: "admin" | "member"; // papel de gestão no grupo (criador é sempre admin)
   color: string; // Tone of color designated to this member
   joinedAt: string;
 }

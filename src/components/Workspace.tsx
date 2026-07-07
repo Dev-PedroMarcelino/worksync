@@ -111,6 +111,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
     updateGroup,
     deleteGroup,
     deleteSubgroup,
+    isGroupAdmin,
+    setMemberRole,
     isSidebarCollapsed,
     setIsSidebarCollapsed,
     deferredPrompt,
@@ -1953,9 +1955,27 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
                 <h4 className="text-base font-extrabold text-gray-900 dark:text-zinc-50 tracking-tight text-center">
                   {selectedProfileMember.name}
                 </h4>
-                <p className="text-xs text-gray-400 dark:text-zinc-500 font-medium mb-4 mt-0.5 text-center">
+                <p className="text-xs text-gray-400 dark:text-zinc-500 font-medium mb-3 mt-0.5 text-center">
                   {selectedProfileMember.role || "Membro do Grupo"}
                 </p>
+
+                {!isPersonal && selectedGroup && (
+                  <div className="flex justify-center mb-4">
+                    {selectedGroup.creatorId === selectedProfileMember.userId ? (
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                        <Settings2 className="w-3 h-3" /> Criador
+                      </span>
+                    ) : isGroupAdmin(selectedProfileMember.userId) ? (
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 dark:text-violet-400 flex items-center gap-1">
+                        <Settings2 className="w-3 h-3" /> Admin
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-gray-150 dark:bg-zinc-800 text-gray-500 dark:text-zinc-400">
+                        Membro
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 {/* Info Card Grid */}
                 <div className="bg-gray-50 dark:bg-zinc-950/50 rounded-2xl p-4 text-left space-y-2.5 border border-gray-100 dark:border-zinc-850/30 mb-5">
@@ -1985,6 +2005,20 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onOpenMobileSidebar, onOpe
                 ) : (
                   <p className="text-[10px] text-gray-400 italic">Visualização do seu perfil público.</p>
                 )}
+
+                {/* Gestão de papel (somente o criador do grupo) */}
+                {!isPersonal &&
+                  selectedGroup &&
+                  selectedGroup.creatorId === currentUser?.id &&
+                  selectedProfileMember.userId !== selectedGroup.creatorId && (
+                    <button
+                      onClick={() => setMemberRole(selectedProfileMember.userId, isGroupAdmin(selectedProfileMember.userId) ? "member" : "admin")}
+                      className="w-full mt-2 py-2.5 bg-violet-500/10 hover:bg-violet-500/20 text-violet-600 dark:text-violet-400 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <Settings2 className="w-4 h-4" />
+                      {isGroupAdmin(selectedProfileMember.userId) ? "Rebaixar a membro" : "Promover a admin"}
+                    </button>
+                  )}
               </div>
             </motion.div>
           </div>

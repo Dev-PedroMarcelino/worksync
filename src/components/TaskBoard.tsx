@@ -105,12 +105,14 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ canEdit }) => {
     toggleTaskStatus,
     updateTaskFields,
     deleteTask,
+    isGroupAdmin,
   } = useApp();
   const toast = useToast();
   const confirm = useConfirm();
 
   const isPersonal = activeTab === "personal";
-  const isGroupLeader = !!(selectedGroup && currentUser && selectedGroup.creatorId === currentUser.id);
+  // Criador do grupo e admins têm poderes de gestão (excluir/aprovar direto).
+  const isGroupLeader = !!(selectedGroup && currentUser && (selectedGroup.creatorId === currentUser.id || isGroupAdmin()));
 
   const [view, setView] = useState<"kanban" | "list">("kanban");
   const [search, setSearch] = useState("");
