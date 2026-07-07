@@ -14,6 +14,7 @@ import { ProfileModal } from "./components/ProfileModal";
 import CommandPalette from "./components/CommandPalette";
 import DeadlineReminders from "./components/DeadlineReminders";
 import InviteHandler from "./components/InviteHandler";
+import AdminPanel from "./components/AdminPanel";
 import { motion, AnimatePresence } from "motion/react";
 import { CheckSquare, MessageSquare, X } from "lucide-react";
 
@@ -132,6 +133,7 @@ function MainLayout() {
       <CommandPalette />
       <DeadlineReminders />
       <InviteHandler />
+      <AdminPanel />
 
       <ToastContainer />
     </div>

@@ -28,12 +28,14 @@ import {
   LogOut,
   UserPlus,
   Crown,
+  Shield,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Group } from "../types";
 import { useConfirm } from "../context/ConfirmContext";
 import { useToast } from "../context/ToastContext";
 import PlanAvatar from "./PlanAvatar";
+import { isSuperAdmin } from "../config/admin";
 
 interface NavigationProps {
   onOpenProfile: (tab?: "profile" | "friends") => void;
@@ -397,6 +399,17 @@ export const Navigation: React.FC<NavigationProps> = ({ onOpenProfile, isMobile,
           >
             {theme === "light" ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
           </button>
+          {isSuperAdmin(currentUser?.email) && (
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event("open-admin"))}
+              aria-label="Painel de administração"
+              title="Painel de administração"
+              className="w-11 h-11 rounded-2xl flex items-center justify-center text-rose-500 hover:bg-rose-500/10 transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+            >
+              <Shield className="w-5 h-5" />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => window.dispatchEvent(new Event("open-plans"))}
