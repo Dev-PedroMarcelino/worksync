@@ -19,8 +19,10 @@ import {
   User2,
   CornerDownLeft,
   FolderOpen,
+  Link2,
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
+import { useToast } from "../context/ToastContext";
 import BoardTemplatesModal from "./BoardTemplatesModal";
 import ProductivityDashboard from "./ProductivityDashboard";
 import PlansModal from "./PlansModal";
@@ -56,7 +58,9 @@ const CommandPalette: React.FC = () => {
     notebooks,
     calendarEvents,
     toggleTheme,
+    selectedGroup,
   } = useApp();
+  const notify = useToast();
 
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -164,6 +168,26 @@ const CommandPalette: React.FC = () => {
         close();
       },
     });
+    if (selectedGroup && !selectedGroup.id.startsWith("dm_")) {
+      list.push({
+        id: "invite",
+        section: "Ações",
+        label: "Copiar link de convite do grupo",
+        sub: selectedGroup.name,
+        icon: <Link2 className="w-4 h-4 text-teal-500" />,
+        keywords: "convite convidar link compartilhar entrar codigo",
+        run: () => {
+          const link = `${window.location.origin}${window.location.pathname}?join=${selectedGroup.code}`;
+          const done = () => notify("Link de convite copiado!", "success");
+          if (navigator.clipboard?.writeText) {
+            navigator.clipboard.writeText(link).then(done, () => notify(link, "info"));
+          } else {
+            notify(link, "info");
+          }
+          close();
+        },
+      });
+    }
 
     // Navegação
     list.push({
@@ -255,7 +279,7 @@ const CommandPalette: React.FC = () => {
 
     return list;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groups, subgroups, tasks, notebooks, calendarEvents, activeTab]);
+  }, [groups, subgroups, tasks, notebooks, calendarEvents, activeTab, selectedGroup]);
 
   const filtered = useMemo(() => {
     const q = stripAccents(query.trim());

@@ -25,9 +25,12 @@ import {
   Repeat,
   Sparkles,
   Loader2,
+  MessageSquare,
+  Send,
+  AtSign,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { Task, ChecklistItem, TaskStatus } from "../types";
+import { Task, ChecklistItem, TaskStatus, TaskComment, GroupMember } from "../types";
 import { useToast } from "../context/ToastContext";
 import { useConfirm } from "../context/ConfirmContext";
 import { generateChecklist } from "../services/aiAssistant";
@@ -37,6 +40,39 @@ const RECURRENCE_LABEL: Record<string, string> = {
   daily: "Diária",
   weekly: "Semanal",
   monthly: "Mensal",
+};
+
+const MENTION_RE = /@[\wÀ-ÿ]+/g;
+
+const matchMember = (name: string, members: GroupMember[]) => {
+  const n = name.toLowerCase();
+  return members.find((m) => m.name.toLowerCase() === n || m.name.toLowerCase().split(" ")[0] === n);
+};
+
+const detectMentions = (text: string, members: GroupMember[]): string[] => {
+  const ids: string[] = [];
+  for (const tok of text.match(MENTION_RE) || []) {
+    const hit = matchMember(tok.slice(1), members);
+    if (hit) ids.push(hit.userId);
+  }
+  return Array.from(new Set(ids));
+};
+
+const renderWithMentions = (text: string, members: GroupMember[]) =>
+  text.split(/(@[\wÀ-ÿ]+)/g).map((part, i) => {
+    if (part.startsWith("@") && matchMember(part.slice(1), members)) {
+      return (
+        <span key={i} className="text-sky-600 dark:text-sky-400 font-semibold bg-sky-500/10 rounded px-0.5">
+          {part}
+        </span>
+      );
+    }
+    return <React.Fragment key={i}>{part}</React.Fragment>;
+  });
+
+const fmtCommentTime = (iso: string) => {
+  const d = new Date(iso);
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 };
 
 interface TaskBoardProps {
@@ -98,6 +134,8 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ canEdit }) => {
   const [checkInput, setCheckInput] = useState("");
   const [fRecur, setFRecur] = useState<NonNullable<Task["recurrence"]>>("none");
   const [aiLoading, setAiLoading] = useState(false);
+  const [fComments, setFComments] = useState<TaskComment[]>([]);
+  const [commentInput, setCommentInput] = useState("");
 
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<TaskStatus | null>(null);
@@ -147,7 +185,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ canEdit }) => {
     setEditing(null);
     setFTitle(""); setFDesc(""); setFPriority("medium"); setFDue(""); setFAssigned("");
     setFStatus(status); setFTags([]); setTagInput(""); setFChecklist([]); setCheckInput("");
-    setFRecur("none");
+    setFRecur("none"); setFComments([]); setCommentInput("");
     setModalOpen(true);
   };
   const openEdit = (t: Task) => {
@@ -155,8 +193,40 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ canEdit }) => {
     setFTitle(t.title); setFDesc(t.description || ""); setFPriority(t.priority);
     setFDue(t.dueDate || ""); setFAssigned(t.assignedTo || ""); setFStatus(t.status);
     setFTags(t.tags || []); setTagInput(""); setFChecklist(t.checklist || []); setCheckInput("");
-    setFRecur(t.recurrence || "none");
+    setFRecur(t.recurrence || "none"); setFComments(t.comments || []); setCommentInput("");
     setModalOpen(true);
+  };
+
+  const addComment = async () => {
+    const v = commentInput.trim();
+    if (!v || !editing) return;
+    const c: TaskComment = {
+      id: "cmt_" + Math.random().toString(36).slice(2, 8),
+      authorId: currentUser?.id || "",
+      authorName: currentUser?.name || "Você",
+      text: v,
+      createdAt: new Date().toISOString(),
+      mentions: detectMentions(v, groupMembers),
+    };
+    const next = [...fComments, c];
+    setFComments(next);
+    setCommentInput("");
+    try {
+      await updateTaskFields(editing.id, { comments: next });
+    } catch {
+      toast("Erro ao enviar comentário.");
+    }
+  };
+
+  const removeComment = async (id: string) => {
+    if (!editing) return;
+    const next = fComments.filter((c) => c.id !== id);
+    setFComments(next);
+    try {
+      await updateTaskFields(editing.id, { comments: next });
+    } catch {
+      toast("Erro ao remover comentário.");
+    }
   };
 
   const generateAiSubtasks = async () => {
@@ -478,6 +548,54 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ canEdit }) => {
                     <button type="button" onClick={addCheck} className="px-2.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-500 rounded-lg"><Plus className="w-4 h-4" /></button>
                   </div>
                 </div>
+                {/* Comentários (somente em tarefa existente) */}
+                {editing ? (
+                  <div className="border border-gray-150 dark:border-zinc-800 rounded-xl p-3 bg-zinc-50/50 dark:bg-zinc-900/40">
+                    <span className="flex items-center gap-1.5 font-semibold text-gray-700 dark:text-zinc-300 mb-2 text-[11px]">
+                      <MessageSquare className="w-3.5 h-3.5" /> Comentários ({fComments.length})
+                    </span>
+                    <div className="space-y-2 mb-2 max-h-40 overflow-y-auto scrollbar-thin">
+                      {fComments.length === 0 ? (
+                        <p className="text-[10px] text-gray-400 italic">Nenhum comentário. {!isPersonal && "Use @ para mencionar um membro."}</p>
+                      ) : (
+                        fComments.map((c) => (
+                          <div key={c.id} className="group/cmt flex gap-2 text-[11px]">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-gray-800 dark:text-zinc-200">{c.authorName}</span>
+                                <span className="text-[9px] text-gray-400">{fmtCommentTime(c.createdAt)}</span>
+                              </div>
+                              <p className="text-gray-600 dark:text-zinc-400 break-words whitespace-pre-wrap">{renderWithMentions(c.text, groupMembers)}</p>
+                            </div>
+                            {c.authorId === currentUser?.id && (
+                              <button type="button" onClick={() => removeComment(c.id)} className="opacity-0 group-hover/cmt:opacity-100 text-gray-400 hover:text-red-500 shrink-0 self-start"><X className="w-3 h-3" /></button>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    {!isPersonal && groupMembers.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-1.5">
+                        {groupMembers.slice(0, 6).map((m) => (
+                          <button
+                            key={m.userId}
+                            type="button"
+                            onClick={() => setCommentInput((prev) => `${prev}${prev && !prev.endsWith(" ") ? " " : ""}@${m.name.split(" ")[0]} `)}
+                            className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-md bg-sky-500/10 text-sky-600 dark:text-sky-400 hover:bg-sky-500/20 cursor-pointer"
+                          >
+                            <AtSign className="w-2.5 h-2.5" />{m.name.split(" ")[0]}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex gap-1.5">
+                      <input value={commentInput} onChange={(e) => setCommentInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addComment(); } }} placeholder="Escreva um comentário..." className="flex-1 px-3 py-1.5 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-white focus:outline-none text-[11px]" />
+                      <button type="button" onClick={addComment} disabled={!commentInput.trim()} className="px-2.5 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 text-white rounded-lg cursor-pointer"><Send className="w-3.5 h-3.5" /></button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-gray-400 italic px-1">Salve a tarefa para adicionar comentários.</p>
+                )}
                 <div className="flex gap-2 justify-end pt-1">
                   <button type="button" onClick={() => setModalOpen(false)} className="px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-gray-500 rounded-lg font-semibold cursor-pointer">Cancelar</button>
                   <button type="submit" className="px-5 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl shadow-xs font-semibold cursor-pointer">{editing ? "Salvar" : "Criar Tarefa"}</button>
@@ -599,6 +717,11 @@ const TaskCard: React.FC<CardProps> = ({ task, compact, canEdit, isPersonal, isG
         {task.recurrence && task.recurrence !== "none" && (
           <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-1 bg-violet-500/10 text-violet-600 dark:text-violet-400" title={`Repete: ${RECURRENCE_LABEL[task.recurrence]}`}>
             <Repeat className="w-2.5 h-2.5" />{RECURRENCE_LABEL[task.recurrence]}
+          </span>
+        )}
+        {(task.comments?.length ?? 0) > 0 && (
+          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-1 bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-zinc-400" title={`${task.comments!.length} comentário(s)`}>
+            <MessageSquare className="w-2.5 h-2.5" />{task.comments!.length}
           </span>
         )}
         {!isPersonal && task.assignedToName && (
