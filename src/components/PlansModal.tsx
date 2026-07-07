@@ -3,10 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from "react";
+import React, { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { X, Check, Crown, Sparkles, Users, Zap } from "lucide-react";
+import { X, Check, Crown, Sparkles, Users, Zap, Loader2 } from "lucide-react";
 import { useApp } from "../context/AppContext";
+import { useToast } from "../context/ToastContext";
+import { startCheckout, type PaidPlan } from "../services/billing";
 
 interface Plan {
   id: "free" | "pro" | "team";
@@ -75,7 +77,21 @@ const PLANS: Plan[] = [
 
 const PlansModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
   const { currentUser } = useApp();
+  const notify = useToast();
   const currentPlan = currentUser?.plan ?? "free";
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+
+  const handleSubscribe = async (planId: "free" | "pro" | "team") => {
+    if (planId === "free" || !currentUser) return;
+    setLoadingPlan(planId);
+    try {
+      await startCheckout(planId as PaidPlan, currentUser.id, currentUser.email);
+      // Em caso de sucesso o navegador é redirecionado para o Stripe.
+    } catch (e: any) {
+      notify(e?.message || "Não foi possível iniciar o pagamento.", "error");
+      setLoadingPlan(null);
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -148,9 +164,9 @@ const PlansModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open, on
                         ))}
                       </ul>
                       <button
-                        disabled={isCurrent}
-                        title={plan.id === "free" ? undefined : "Pagamento em breve"}
-                        className={`w-full px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer disabled:cursor-default ${
+                        disabled={isCurrent || loadingPlan !== null}
+                        onClick={() => handleSubscribe(plan.id)}
+                        className={`w-full px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer disabled:cursor-default disabled:opacity-60 flex items-center justify-center gap-2 ${
                           isCurrent
                             ? "bg-gray-100 dark:bg-zinc-800 text-gray-400 dark:text-zinc-500"
                             : plan.highlight
@@ -158,6 +174,7 @@ const PlansModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open, on
                               : "bg-gray-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:opacity-90"
                         }`}
                       >
+                        {loadingPlan === plan.id && <Loader2 className="w-4 h-4 animate-spin" />}
                         {isCurrent ? "Plano atual" : plan.id === "free" ? "Começar grátis" : `Assinar ${plan.name}`}
                       </button>
                     </div>
